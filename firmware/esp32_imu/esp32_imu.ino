@@ -22,9 +22,8 @@ Preferences imu_prefs;
 #define DXL_MODEL_NUM 0xbaff
 #define DEFAULT_ID 241
 #define DEFAULT_BAUD 4 //2mbaud
-
-uart_t* uart;
-DYNAMIXEL::FastSlave dxl(NULL, DXL_MODEL_NUM);
+DYNAMIXEL::SerialPortHandler dxl_port(Serial, DXL_DIR_PIN);
+DYNAMIXEL::Slave dxl(dxl_port, DXL_MODEL_NUM);
 
 #define ADDR_CONTROL_ITEM_BAUD 8
 
@@ -251,7 +250,8 @@ void TaskDXL(void *pvParameters)
   id = dxl_prefs.getUChar("id");
   baud = dxl_prefs.getUChar("baud");
 
-  
+  dxl_port.begin(dxl_to_real_baud(baud));
+
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VER_2_0);
   dxl.setFirmwareVersion(1);
   dxl.setID(id);
@@ -298,7 +298,7 @@ void TaskDXL(void *pvParameters)
 
   
   dxl.setWriteCallbackFunc(write_callback_func);
-  
+  /*
   // init uart 0, given baud, 8bits 1stop no parity, pin 3 and 1, 256 buffer, no inversion
   uart = uartBegin(0, dxl_to_real_baud(baud), SERIAL_8N1, 3, 1,  256, false);
   // disable all interrupts
@@ -306,10 +306,10 @@ void TaskDXL(void *pvParameters)
   uart->dev->int_ena.rxfifo_full = 0;
   uart->dev->int_ena.frm_err = 0;
   uart->dev->int_ena.rxfifo_tout = 0;
-  
+  */
   for (;;)
   {
-    if(dxl.processPacket(uart)){
+    if(dxl.processPacket()){
       if(dxl.getID() != id) // since we cant add the id as a control item, we need to check if it has been updated manually
       {
         id = dxl.getID();
