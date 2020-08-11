@@ -4,7 +4,7 @@
 #include <array>
 #include "complementary_filter.h"
 #include <Preferences.h>
-//#include "fast_slave.h"
+#include "fast_slave.h"
 
 // define two tasks for reading the dxl bus and doing other work
 void TaskDXL( void *pvParameters );
@@ -22,8 +22,9 @@ Preferences imu_prefs;
 #define DXL_MODEL_NUM 0xbaff
 #define DEFAULT_ID 241
 #define DEFAULT_BAUD 4 //2mbaud
-DYNAMIXEL::SerialPortHandler dxl_port(Serial, DXL_DIR_PIN);
-DYNAMIXEL::Slave dxl(dxl_port, DXL_MODEL_NUM);
+
+uart_t* uart;
+DYNAMIXEL::FastSlave dxl(NULL, DXL_MODEL_NUM);
 
 #define ADDR_CONTROL_ITEM_BAUD 8
 
@@ -167,7 +168,7 @@ uint32_t dxl_to_real_baud(uint8_t baud)
     case 4: real_baud = 2000000; break;
     case 5: real_baud = 3000000; break;
     case 6: real_baud = 4000000; break;
-    case 7: real_baud = 5000000; break;
+    case 7: real_baud = 4500000; break;
   }
   return real_baud;
 }
@@ -250,8 +251,6 @@ void TaskDXL(void *pvParameters)
   id = dxl_prefs.getUChar("id");
   baud = dxl_prefs.getUChar("baud");
 
-  dxl_port.begin(dxl_to_real_baud(baud));
-
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VER_2_0);
   dxl.setFirmwareVersion(1);
   dxl.setID(id);
@@ -286,7 +285,6 @@ void TaskDXL(void *pvParameters)
   
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_RANGE, gyro_range);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_RANGE, accel_range);
-
   
   dxl.addControlItem(ADDR_CONTROL_ITEM_CALIBRATE_GYRO, calibrate_gyro);
   dxl.addControlItem(ADDR_CONTROL_ITEM_RESET_GYRO_CALIBRATION, reset_gyro_calibration);
@@ -298,7 +296,9 @@ void TaskDXL(void *pvParameters)
 
   
   dxl.setWriteCallbackFunc(write_callback_func);
-  /*
+
+  
+  pinMode(DXL_DIR_PIN, OUTPUT);
   // init uart 0, given baud, 8bits 1stop no parity, pin 3 and 1, 256 buffer, no inversion
   uart = uartBegin(0, dxl_to_real_baud(baud), SERIAL_8N1, 3, 1,  256, false);
   // disable all interrupts
@@ -306,10 +306,10 @@ void TaskDXL(void *pvParameters)
   uart->dev->int_ena.rxfifo_full = 0;
   uart->dev->int_ena.frm_err = 0;
   uart->dev->int_ena.rxfifo_tout = 0;
-  */
+
   for (;;)
   {
-    if(dxl.processPacket()){
+    if(dxl.processPacket(uart)){
       if(dxl.getID() != id) // since we cant add the id as a control item, we need to check if it has been updated manually
       {
         id = dxl.getID();
@@ -317,6 +317,7 @@ void TaskDXL(void *pvParameters)
       }
     }
   }
+
 }
 
 /*---------------------- IMU ---------------------*/
@@ -425,9 +426,7 @@ void TaskWorker(void *pvParameters)
     
     imu_prefs.putUChar("init",1); // set initialized
   }
-  int status = IMU.begin();
-  Serial.print("status: ");
-  Serial.println(status);
+  IMU.begin();
   IMU.setSrd(0);
   setGyroRange(imu_prefs.getUChar("gyro_range"));
   setAccelRange(imu_prefs.getUChar("accel_range"));
