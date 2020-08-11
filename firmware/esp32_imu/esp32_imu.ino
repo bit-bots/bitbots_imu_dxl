@@ -24,7 +24,7 @@ Preferences imu_prefs;
 #define DEFAULT_BAUD 4 //2mbaud
 
 uart_t* uart;
-DYNAMIXEL::FastSlave dxl(NULL, DXL_MODEL_NUM);
+DYNAMIXEL::FastSlave dxl(DXL_MODEL_NUM, DXL_PROTOCOL_VER_2_0);
 
 #define ADDR_CONTROL_ITEM_BAUD 8
 
