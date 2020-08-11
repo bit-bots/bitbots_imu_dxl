@@ -4,7 +4,7 @@
 #include <array>
 #include "complementary_filter.h"
 #include <Preferences.h>
-#include "fast_slave.h"
+//#include "fast_slave.h"
 
 // define two tasks for reading the dxl bus and doing other work
 void TaskDXL( void *pvParameters );
@@ -425,11 +425,10 @@ void TaskWorker(void *pvParameters)
     
     imu_prefs.putUChar("init",1); // set initialized
   }
-  delay(1000);
   int status = IMU.begin();
   Serial.print("status: ");
   Serial.println(status);
-  IMU.setSrd(50);
+  IMU.setSrd(0);
   setGyroRange(imu_prefs.getUChar("gyro_range"));
   setAccelRange(imu_prefs.getUChar("accel_range"));
   IMU.enableDataReadyInterrupt();
