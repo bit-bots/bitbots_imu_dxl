@@ -65,7 +65,6 @@ DYNAMIXEL::FastSlave dxl(DXL_MODEL_NUM, DXL_PROTOCOL_VER_2_0);
 #define ADDR_CONTROL_ITEM_ACCEL_GAIN 110
 #define ADDR_CONTROL_ITEM_BIAS_ALPHA 114
 
-
 #define ADDR_CONTROL_ITEM_ACCEL_CALIBRATION_THRESHOLD 118
 #define ADDR_CONTROL_ITEM_ACCEL_BIAS_X 122
 #define ADDR_CONTROL_ITEM_ACCEL_BIAS_Y 126
@@ -92,7 +91,7 @@ MPU9250 IMU(SPI, IMU_NCS);
 #define GYRO_RANGE_DEFAULT MPU9250::GYRO_RANGE_2000DPS
 #define SAMPLE_RATE_DIVIDER 0  // (freq = 1000 / (1+srd))
 
-
+bool imu_data_available = false;
 float gyro[3] = {0,0,0};
 float accel[3] = {0,0,0};
 float quat[4] = {0,0,0,0};
@@ -109,7 +108,7 @@ bool reset_gyro_calibration = false;
 bool calibrate_accel = false;
 bool reset_accel_calibration = false;
 
-#define ACCEL_CALIBRATION_THRESHOLD_DEFAULT 7.5f
+#define ACCEL_CALIBRATION_THRESHOLD_DEFAULT 7.5
 float accel_calibration_threshold;
 
 float accel_scale_x, accel_scale_y, accel_scale_z, accel_bias_x, accel_bias_y, accel_bias_z;
@@ -214,27 +213,19 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
   {
     if(calibrate_gyro)
     {
+      delay(1); //make sure processing of imu is done for 1 cycle
       int status = IMU.calibrateGyro();
-      switch(status)
+      if(status == 1)
       {
-        case -4:
-          leds[0] = CRGB::Red;
-          break;
-        case -5:
-          leds[0] = CRGB::Green;
-          break;
-        case -6:
-          leds[0] = CRGB::Blue;
-          break;
-        case 1:
-          leds[0] = CRGB::White;
-          break;
-        default:
-          leds[0] = CRGB::Magenta;
-          break;
+        leds[0] = CRGB::Green;
       }
+      else
+      {
+        leds[0] = CRGB::Red;
+      }
+      delay(200);
+      leds[1] = CRGB::Black;
       FastLED.show();
-      
       calibrate_gyro = false;
     }
   }
@@ -252,25 +243,37 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
   {
     if(calibrate_accel)
     {
-      IMU.calibrateAccel(accel_calibration_threshold);
-
-      //update values in registers
-      accel_scale_x = IMU.getAccelScaleFactorX();
-      accel_scale_y = IMU.getAccelScaleFactorY();
-      accel_scale_z = IMU.getAccelScaleFactorZ();
-      accel_bias_x = IMU.getAccelBiasX_mss();
-      accel_bias_y = IMU.getAccelBiasY_mss();
-      accel_bias_z = IMU.getAccelBiasZ_mss();
-
-      // save values to flash
-      imu_prefs.putFloat("accel_scale_x", accel_scale_x);
-      imu_prefs.putFloat("accel_scale_y", accel_scale_y);
-      imu_prefs.putFloat("accel_scale_z", accel_scale_z);
+      delay(1); //make sure processing of imu is done for 1 cycle
+      int status = IMU.calibrateAccel(accel_calibration_threshold);
+      if(status == 1)
+      {
+        leds[1] = CRGB::Green;
+        //update values in registers
+        accel_scale_x = IMU.getAccelScaleFactorX();
+        accel_scale_y = IMU.getAccelScaleFactorY();
+        accel_scale_z = IMU.getAccelScaleFactorZ();
+        accel_bias_x = IMU.getAccelBiasX_mss();
+        accel_bias_y = IMU.getAccelBiasY_mss();
+        accel_bias_z = IMU.getAccelBiasZ_mss();
     
-      //imu_prefs.putFloat("accel_bias_x", accel_bias_x);
-      //imu_prefs.putFloat("accel_bias_y", accel_bias_y);
-      //imu_prefs.putFloat("accel_bias_z", accel_bias_z);
-      calibrate_accel = 0;
+        // save values to flash
+        imu_prefs.putFloat("accel_scale_x", accel_scale_x);
+        imu_prefs.putFloat("accel_scale_y", accel_scale_y);
+        imu_prefs.putFloat("accel_scale_z", accel_scale_z);
+      
+        imu_prefs.putFloat("accel_bias_x", accel_bias_x);
+        imu_prefs.putFloat("accel_bias_y", accel_bias_y);
+        imu_prefs.putFloat("accel_bias_z", accel_bias_z);
+        calibrate_accel = false;
+      }
+      else
+      {
+        leds[1] = CRGB::Red;
+      }
+      FastLED.show();
+      delay(200);
+      leds[1] = CRGB::Black;
+      FastLED.show();
     }
   }
   else if(item_addr == ADDR_CONTROL_ITEM_RESET_ACCEL_CALIBRATION)
@@ -301,7 +304,7 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
   }
   else if(item_addr == ADDR_CONTROL_ITEM_ACCEL_CALIBRATION_THRESHOLD)
   {
-    imu_prefs.putFloat("accel_calibration_threshold", accel_calibration_threshold);
+    imu_prefs.putFloat("a_calib_thresh", accel_calibration_threshold);
   }
   else if(item_addr == ADDR_CONTROL_ITEM_DO_ADAPTIVE_GAIN)
   {
@@ -334,7 +337,6 @@ void TaskDXL(void *pvParameters)
   (void) pvParameters;
 
   dxl_prefs.begin("dxl");
-  dxl_prefs.putUChar("init", 0);
   if(!dxl_prefs.getUChar("init")) // check if prefs are initialized
   {
     dxl_prefs.putUChar("id", DEFAULT_ID);
@@ -469,56 +471,16 @@ void setGyroRange(uint8_t range)
     }
     IMU.setGyroRange(mpu_range);
 }
-void IRAM_ATTR getIMU(){
+void IRAM_ATTR getIMU(){ //IRAM_ATTR puts this function into ram, required since it is called as an interrupt
     if(calibrate_gyro || calibrate_accel)
       return;
-    
-    buttons[0] = !digitalRead(BUTTON0_PIN);
-    buttons[1] = !digitalRead(BUTTON1_PIN);
-    buttons[2] = !digitalRead(BUTTON2_PIN);
-    
-    IMU.readSensor();
-    dt += 1e-3;
-    float tmp_gyro[3], tmp_accel[3];
-    tmp_gyro[0] = IMU.getGyroY_rads();
-    tmp_gyro[1] = IMU.getGyroX_rads();
-    tmp_gyro[2] = IMU.getGyroZ_rads();
-    tmp_accel[0] = IMU.getAccelX_mss();
-    tmp_accel[1] = IMU.getAccelY_mss();
-    tmp_accel[2] = IMU.getAccelZ_mss();
-    
-    if(isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]) || isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
-      return;
-    
-    for(int i = 0; i<3; i++)
-    {
-      gyro[i] = tmp_gyro[i];
-      accel[i] = tmp_accel[i];  
-    }
-    filter_.update(accel[0], accel[1], accel[2], gyro[0], gyro[1], gyro[2], 1e-3);
-    dt = 0;
-    double q0,q1,q2,q3;
-    filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
-    quat[0] = q3;
-    quat[1] = q0;
-    quat[2] = q1;
-    quat[3] = q2;
-    
-    if (filter_.getDoBiasEstimation())
-    {
-      gyro[0] -= filter_.getAngularVelocityBiasX();
-      gyro[1] -= filter_.getAngularVelocityBiasY();
-      gyro[2] -= filter_.getAngularVelocityBiasZ();
-    }
-    
+    imu_data_available = true;
 }
 
 void TaskWorker(void *pvParameters) 
 {
   (void) pvParameters;
-
   imu_prefs.begin("imu");
-  imu_prefs.putUChar("init",0); //TODO: REMOVE AFTER DEBUG DONE
   if(!imu_prefs.getUChar("init")) // check if prefs are initialized
   {
     imu_prefs.putUChar("accel_range", ACCEL_RANGE_DEFAULT);
@@ -537,7 +499,7 @@ void TaskWorker(void *pvParameters)
     imu_prefs.putFloat("accel_bias_y", 0.0);
     imu_prefs.putFloat("accel_bias_z", 0.0);
     
-    imu_prefs.putFloat("accel_calibration_threshold", ACCEL_CALIBRATION_THRESHOLD_DEFAULT);
+    imu_prefs.putFloat("a_calib_thresh", ACCEL_CALIBRATION_THRESHOLD_DEFAULT); //keys no longer than 15 chars
     
     imu_prefs.putUChar("init",1); // set initialized
   }
@@ -553,7 +515,7 @@ void TaskWorker(void *pvParameters)
   accel_range = imu_prefs.getUChar("accel_range");
   setAccelRange(accel_range);
 
-  accel_calibration_threshold = imu_prefs.getFloat("accel_calibration_threshold");
+  accel_calibration_threshold = imu_prefs.getFloat("a_calib_thresh");
   
   accel_scale_x = imu_prefs.getFloat("accel_scale_x");
   accel_scale_y = imu_prefs.getFloat("accel_scale_y");
@@ -566,6 +528,12 @@ void TaskWorker(void *pvParameters)
   IMU.setAccelCalY(accel_bias_y, accel_scale_y);
   IMU.setAccelCalZ(accel_bias_z, accel_scale_z);
   
+  accel_scale_x = IMU.getAccelScaleFactorX();
+  accel_scale_y = IMU.getAccelScaleFactorY();
+  accel_scale_z = IMU.getAccelScaleFactorZ();
+  accel_bias_x = IMU.getAccelBiasX_mss();
+  accel_bias_y = IMU.getAccelBiasY_mss();
+  accel_bias_z = IMU.getAccelBiasZ_mss();
   IMU.enableDataReadyInterrupt();
 
   do_adaptive_gain = imu_prefs.getUChar("adaptive_gain");
@@ -587,6 +555,47 @@ void TaskWorker(void *pvParameters)
 
   for (;;)
   {
+    
+    buttons[0] = !digitalRead(BUTTON0_PIN);
+    buttons[1] = !digitalRead(BUTTON1_PIN);
+    buttons[2] = !digitalRead(BUTTON2_PIN);
+    if(imu_data_available)
+    {
+      IMU.readSensor();
+      dt += 1e-3;
+      float tmp_gyro[3], tmp_accel[3];
+      tmp_gyro[0] = IMU.getGyroY_rads();
+      tmp_gyro[1] = IMU.getGyroX_rads();
+      tmp_gyro[2] = IMU.getGyroZ_rads();
+      tmp_accel[0] = IMU.getAccelX_mss();
+      tmp_accel[1] = IMU.getAccelY_mss();
+      tmp_accel[2] = IMU.getAccelZ_mss();
+      
+      if(isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]) || isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
+        return;
+      
+      for(int i = 0; i<3; i++)
+      {
+        gyro[i] = tmp_gyro[i];
+        accel[i] = tmp_accel[i];  
+      }
+      filter_.update(accel[0], accel[1], accel[2], gyro[0], gyro[1], gyro[2], 1e-3);
+      dt = 0;
+      double q0,q1,q2,q3;
+      filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
+      quat[0] = q3;
+      quat[1] = q0;
+      quat[2] = q1;
+      quat[3] = q2;
+      
+      if (filter_.getDoBiasEstimation())
+      {
+        gyro[0] -= filter_.getAngularVelocityBiasX();
+        gyro[1] -= filter_.getAngularVelocityBiasY();
+        gyro[2] -= filter_.getAngularVelocityBiasZ();
+      }
+      imu_data_available = false;
+    }
   }
   
 }
