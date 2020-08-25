@@ -564,8 +564,8 @@ void TaskWorker(void *pvParameters)
       IMU.readSensor();
       dt += 1e-3;
       float tmp_gyro[3], tmp_accel[3];
-      tmp_gyro[0] = IMU.getGyroY_rads();
-      tmp_gyro[1] = IMU.getGyroX_rads();
+      tmp_gyro[0] = IMU.getGyroX_rads();
+      tmp_gyro[1] = IMU.getGyroY_rads();
       tmp_gyro[2] = IMU.getGyroZ_rads();
       tmp_accel[0] = IMU.getAccelX_mss();
       tmp_accel[1] = IMU.getAccelY_mss();
@@ -583,10 +583,10 @@ void TaskWorker(void *pvParameters)
       dt = 0;
       double q0,q1,q2,q3;
       filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
-      quat[0] = q3;
-      quat[1] = q0;
-      quat[2] = q1;
-      quat[3] = q2;
+      quat[0] = q1;
+      quat[1] = q2;
+      quat[2] = q3;
+      quat[3] = q0;
       
       if (filter_.getDoBiasEstimation())
       {
