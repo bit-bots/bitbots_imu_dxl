@@ -318,7 +318,7 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
   }
   else if(item_addr == ADDR_CONTROL_ITEM_ACCEL_GAIN)
   {
-    imu_prefs.putFloat("gain_accel", IMU_GAIN_ACCEL_DEFAULT);
+    imu_prefs.putFloat("gain_accel", accel_gain);
     filter_.setGainAcc(accel_gain);
   }
   else if(item_addr == ADDR_CONTROL_ITEM_BIAS_ALPHA)
