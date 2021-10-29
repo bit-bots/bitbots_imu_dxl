@@ -574,12 +574,7 @@ void TaskWorker(void *pvParameters)
       if(isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]) || isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
         return;
       
-      for(int i = 0; i<3; i++)
-      {
-        gyro[i] = tmp_gyro[i];
-        accel[i] = tmp_accel[i];  
-      }
-      filter_.update(accel[0], accel[1], accel[2], gyro[0], gyro[1], gyro[2], 1e-3);
+      filter_.update(tmp_accel[0], tmp_accel[1], tmp_accel[2], tmp_gyro[0], tmp_gyro[1], tmp_gyro[2], 1e-3);
       dt = 0;
       double q0,q1,q2,q3;
       filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
@@ -588,11 +583,20 @@ void TaskWorker(void *pvParameters)
       quat[2] = q3;
       quat[3] = q0;
       
+      for(int i = 0; i<3; i++)
+      {
+        accel[i] = tmp_accel[i];  
+      }
       if (filter_.getDoBiasEstimation())
       {
         gyro[0] -= filter_.getAngularVelocityBiasX();
         gyro[1] -= filter_.getAngularVelocityBiasY();
         gyro[2] -= filter_.getAngularVelocityBiasZ();
+      }else{
+        for(int i = 0; i<3; i++)
+        {
+          gyro[i] = tmp_gyro[i];
+        }
       }
       imu_data_available = false;
     }
