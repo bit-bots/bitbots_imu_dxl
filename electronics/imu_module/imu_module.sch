@@ -781,4 +781,220 @@ F 3 "" H 4300 2900 50  0001 C CNN
 	1    0    0    -1  
 $EndComp
 NoConn ~ 2900 6450
+$Comp
+L Mechanical:MountingHole_Pad H3
+U 1 1 61A98A78
+P 9900 4700
+F 0 "H3" H 10000 4749 50  0000 L CNN
+F 1 "MountingHole_Pad" H 10000 4658 50  0000 L CNN
+F 2 "MountingHole:MountingHole_2.7mm_M2.5_ISO14580_Pad" H 9900 4700 50  0001 C CNN
+F 3 "~" H 9900 4700 50  0001 C CNN
+	1    9900 4700
+	1    0    0    -1  
+$EndComp
+$Comp
+L Mechanical:MountingHole_Pad H2
+U 1 1 61A99130
+P 9600 4700
+F 0 "H2" H 9700 4749 50  0000 L CNN
+F 1 "MountingHole_Pad" H 9700 4658 50  0000 L CNN
+F 2 "MountingHole:MountingHole_2.7mm_M2.5_ISO14580_Pad" H 9600 4700 50  0001 C CNN
+F 3 "~" H 9600 4700 50  0001 C CNN
+	1    9600 4700
+	1    0    0    -1  
+$EndComp
+$Comp
+L Mechanical:MountingHole_Pad H1
+U 1 1 61A9933B
+P 9300 4700
+F 0 "H1" H 9400 4749 50  0000 L CNN
+F 1 "MountingHole_Pad" H 9400 4658 50  0000 L CNN
+F 2 "MountingHole:MountingHole_2.7mm_M2.5_ISO14580_Pad" H 9300 4700 50  0001 C CNN
+F 3 "~" H 9300 4700 50  0001 C CNN
+	1    9300 4700
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR017
+U 1 1 61A99512
+P 9600 5000
+AR Path="/61A99512" Ref="#PWR017"  Part="1" 
+AR Path="/5F83C004/61A99512" Ref="#PWR?"  Part="1" 
+F 0 "#PWR017" H 9600 4750 50  0001 C CNN
+F 1 "GND" H 9600 4850 50  0000 C CNN
+F 2 "" H 9600 5000 50  0001 C CNN
+F 3 "" H 9600 5000 50  0001 C CNN
+	1    9600 5000
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	9900 4800 9900 4900
+Wire Wire Line
+	9900 4900 9600 4900
+Wire Wire Line
+	9600 4900 9600 4800
+Wire Wire Line
+	9600 4900 9300 4900
+Wire Wire Line
+	9300 4900 9300 4800
+Connection ~ 9600 4900
+Wire Wire Line
+	9600 4900 9600 5000
+Text Notes 7150 4700 0    50   ~ 0
+buttons footprint verify\n
+$Comp
+L Regulator_Linear:LT1963AxST-3.3 U5
+U 1 1 61AB9CBE
+P 6950 5800
+F 0 "U5" H 6950 6167 50  0000 C CNN
+F 1 "AP2114HA-3.3TRG1" H 6950 6076 50  0000 C CNN
+F 2 "Package_TO_SOT_SMD:SOT-223-3_TabPin2" H 6950 5350 50  0001 C CNN
+F 3 "https://www.analog.com/media/en/technical-documentation/data-sheets/1963aff.pdf" H 6950 5250 50  0001 C CNN
+	1    6950 5800
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C10
+U 1 1 61ABAAD8
+P 7550 5900
+AR Path="/61ABAAD8" Ref="C10"  Part="1" 
+AR Path="/5F83C004/61ABAAD8" Ref="C?"  Part="1" 
+F 0 "C10" H 7650 5950 50  0000 L CNN
+F 1 "4.7u" H 7650 5850 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 7550 5900 50  0001 C CNN
+F 3 "~" H 7550 5900 50  0001 C CNN
+F 4 "C1525" H 7550 5900 50  0001 C CNN "LCSC Part #"
+	1    7550 5900
+	1    0    0    -1  
+$EndComp
+$Comp
+L Device:C_Small C9
+U 1 1 61ABAE91
+P 6350 5900
+AR Path="/61ABAE91" Ref="C9"  Part="1" 
+AR Path="/5F83C004/61ABAE91" Ref="C?"  Part="1" 
+F 0 "C9" H 6450 5950 50  0000 L CNN
+F 1 "4.7u" H 6450 5850 50  0000 L CNN
+F 2 "Capacitor_SMD:C_0805_2012Metric_Pad1.15x1.40mm_HandSolder" H 6350 5900 50  0001 C CNN
+F 3 "~" H 6350 5900 50  0001 C CNN
+F 4 "C1525" H 6350 5900 50  0001 C CNN "LCSC Part #"
+	1    6350 5900
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR018
+U 1 1 61ABB1AB
+P 6350 5550
+F 0 "#PWR018" H 6350 5400 50  0001 C CNN
+F 1 "+5V" H 6365 5723 50  0000 C CNN
+F 2 "" H 6350 5550 50  0001 C CNN
+F 3 "" H 6350 5550 50  0001 C CNN
+	1    6350 5550
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+3.3V #PWR025
+U 1 1 61ABEF44
+P 7550 5600
+AR Path="/61ABEF44" Ref="#PWR025"  Part="1" 
+AR Path="/5F83C004/61ABEF44" Ref="#PWR?"  Part="1" 
+F 0 "#PWR025" H 7550 5450 50  0001 C CNN
+F 1 "+3.3V" H 7550 5750 50  0000 C CNN
+F 2 "" H 7550 5600 50  0001 C CNN
+F 3 "" H 7550 5600 50  0001 C CNN
+	1    7550 5600
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	6350 5550 6350 5700
+Wire Wire Line
+	6350 5700 6550 5700
+Connection ~ 6350 5700
+Wire Wire Line
+	6350 5700 6350 5800
+Wire Wire Line
+	7350 5700 7550 5700
+Wire Wire Line
+	7550 5700 7550 5600
+Wire Wire Line
+	7550 5700 7550 5800
+Connection ~ 7550 5700
+$Comp
+L power:GND #PWR019
+U 1 1 61AC4BE7
+P 6350 6150
+AR Path="/61AC4BE7" Ref="#PWR019"  Part="1" 
+AR Path="/5F83C004/61AC4BE7" Ref="#PWR?"  Part="1" 
+F 0 "#PWR019" H 6350 5900 50  0001 C CNN
+F 1 "GND" H 6350 6000 50  0000 C CNN
+F 2 "" H 6350 6150 50  0001 C CNN
+F 3 "" H 6350 6150 50  0001 C CNN
+	1    6350 6150
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR024
+U 1 1 61AC4EC7
+P 6950 6200
+AR Path="/61AC4EC7" Ref="#PWR024"  Part="1" 
+AR Path="/5F83C004/61AC4EC7" Ref="#PWR?"  Part="1" 
+F 0 "#PWR024" H 6950 5950 50  0001 C CNN
+F 1 "GND" H 6950 6050 50  0000 C CNN
+F 2 "" H 6950 6200 50  0001 C CNN
+F 3 "" H 6950 6200 50  0001 C CNN
+	1    6950 6200
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:GND #PWR026
+U 1 1 61AC5116
+P 7550 6200
+AR Path="/61AC5116" Ref="#PWR026"  Part="1" 
+AR Path="/5F83C004/61AC5116" Ref="#PWR?"  Part="1" 
+F 0 "#PWR026" H 7550 5950 50  0001 C CNN
+F 1 "GND" H 7550 6050 50  0000 C CNN
+F 2 "" H 7550 6200 50  0001 C CNN
+F 3 "" H 7550 6200 50  0001 C CNN
+	1    7550 6200
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	7550 6000 7550 6200
+Wire Wire Line
+	6950 6100 6950 6200
+Wire Wire Line
+	6350 6000 6350 6150
+$Comp
+L Switch:SW_Push SW1
+U 1 1 61ACC330
+P 7200 3900
+F 0 "SW1" H 7200 4185 50  0000 C CNN
+F 1 "SW_Push" H 7200 4094 50  0000 C CNN
+F 2 "Button_Switch_SMD:SW_SPST_B3S-1000" H 7200 4100 50  0001 C CNN
+F 3 "~" H 7200 4100 50  0001 C CNN
+	1    7200 3900
+	1    0    0    -1  
+$EndComp
+$Comp
+L Switch:SW_Push SW2
+U 1 1 61ACC94A
+P 7200 4100
+F 0 "SW2" H 7200 4385 50  0000 C CNN
+F 1 "SW_Push" H 7200 4294 50  0000 C CNN
+F 2 "Button_Switch_SMD:SW_SPST_B3S-1000" H 7200 4300 50  0001 C CNN
+F 3 "~" H 7200 4300 50  0001 C CNN
+	1    7200 4100
+	1    0    0    -1  
+$EndComp
+$Comp
+L Switch:SW_Push SW3
+U 1 1 61ACCD37
+P 7200 4250
+F 0 "SW3" H 7200 4535 50  0000 C CNN
+F 1 "SW_Push" H 7200 4444 50  0000 C CNN
+F 2 "Button_Switch_SMD:SW_SPST_B3S-1000" H 7200 4450 50  0001 C CNN
+F 3 "~" H 7200 4450 50  0001 C CNN
+	1    7200 4250
+	1    0    0    -1  
+$EndComp
 $EndSCHEMATC
