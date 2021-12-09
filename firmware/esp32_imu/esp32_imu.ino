@@ -589,7 +589,7 @@ void TaskWorker(void *pvParameters)
       }
       if (filter_.getDoBiasEstimation())
       {
-        gyro[0] -= filter_.getAngularVelocityBiasX();
+        gyro[0] = tmp_gyro[0] - filter_.getAngularVelocityBiasX();
         gyro[1] -= filter_.getAngularVelocityBiasY();
         gyro[2] -= filter_.getAngularVelocityBiasZ();
       }else{
