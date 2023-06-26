@@ -1,0 +1,9 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP VLS5045EX-220M
+D TDK VLS-EX Series Type 5045 Shielded Wire-wound SMD Inductor with a Ferrite Core, 22 uH +/-20% Wire-Wound 1.8A Idc
+K
+F https://product.tdk.com/system/files/dam/doc/product/inductor/inductor/smd/catalog/inductor_commercial_power_vls5045ex_en.pdf
+$ENDCMP
+#
+#End Doc Library
