@@ -12,3 +12,8 @@ fp-info-cache# Netlist files (exported from Eeschema)
 *.net# Autorouter files (exported from Pcbnew)
 *.dsn
 *.ses
+electronics/imu_module/imu_module-backups/*
+
+# Platform IO
+firmware/.pio/*
+firmware/.vscode/*
