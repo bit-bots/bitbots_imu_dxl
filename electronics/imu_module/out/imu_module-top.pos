@@ -1,0 +1,23 @@
+### Footprint positions - created on Wed 14 Jun 2023 03:20:34 PM CEST ###
+### Printed by KiCad version 7.0.2-6a45011f42~172~ubuntu22.04.1
+## Unit = mm, Angle = deg.
+## Side : top
+# Ref     Val              Package                                         PosX       PosY       Rot  Side
+C1        100n             C_0805_2012Metric                            24.2500   -15.7500    0.0000  top
+C2        100n             C_0805_2012Metric                            20.0000    -2.0000    0.0000  top
+C3        100n             C_0805_2012Metric                            24.2000    -9.5000    0.0000  top
+C4        100n             C_0805_2012Metric                            15.7500    -5.0000    0.0000  top
+C5        10u              C_0805_2012Metric                             9.9750    -5.0000    0.0000  top
+C8        100n             C_0805_2012Metric                            21.2500   -30.5000   90.0000  top
+J1        Conn_01x06_Male  testpoint_01x06                               5.1300   -30.0000    0.0000  top
+J2        Conn_01x03_Male  PinHeader_1x03_P2.54mm_Vertical              28.2500   -16.7100    0.0000  top
+J3        Conn_01x04       Molex_SPOX_5267-04A_1x04_P2.50mm_Vertical    27.3500   -36.5500  180.0000  top
+J4        Conn_01x04       Molex_SPOX_5267-04A_1x04_P2.50mm_Vertical    10.1500   -36.5500  180.0000  top
+R1        10K              R_0805_2012Metric                            12.5000    -2.2500    0.0000  top
+R2        4K7              R_0805_2012Metric                             5.5875   -33.0000  180.0000  top
+R3        4K7              R_0805_2012Metric                             1.5000   -32.0000   90.0000  top
+U1        ESP32-WROOM-32U  ESP32-WROOM-32U                              11.0950   -16.7500  -90.0000  top
+U2        BMI088           PQFN50P450X300X100-16N                       24.7500   -12.6650    0.0000  top
+U3        SN74LV1T34DBVR   SN74LV1T34DBVR                               23.7000   -23.7000    0.0000  top
+U4        SP485            SOIC-8_3.9x4.9mm_P1.27mm                     26.2500   -30.0000  -90.0000  top
+## End

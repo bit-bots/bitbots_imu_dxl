@@ -268,6 +268,7 @@ void TaskDXL(void *pvParameters)
 
   for (;;)
   {
+    
     if(dxl.processPacket(uart)){
       if(dxl.getID() != id) // since we cant add the id as a control item, we need to check if it has been updated manually
       {

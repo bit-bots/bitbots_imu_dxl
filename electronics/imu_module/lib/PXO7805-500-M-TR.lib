@@ -1,0 +1,26 @@
+EESchema-LIBRARY Version 2.3
+#encoding utf-8
+#(c) SnapEDA 2016 (snapeda.com)
+#This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License (CC BY-SA) with Design Exception 1.0
+#
+# PXO7805-500-M-TR
+#
+DEF PXO7805-500-M-TR PS 0 40 Y Y 1 L N
+F0 "PS" -400 230 50 H V L BNN
+F1 "PXO7805-500-M-TR" -400 -230 50 H V L BNN
+F2 "CONV_PXO7805-500-M-TR" 0 0 50 H I L BNN
+F3 "" 0 0 50 H I L BNN
+F4 "1.0" 0 0 50 H I L BNN "PARTREV"
+F5 "Manufacturer Recommendations" 0 0 50 H I L BNN "STANDARD"
+F6 "PXO7805-500-M-TR" 0 0 50 H I L BNN "SNAPEDA_PN"
+F7 "4.5 mm" 0 0 50 H I L BNN "MAXIMUM_PACKAGE_HEIGHT"
+F8 "CUI" 0 0 50 H I L BNN "MANUFACTURER"
+DRAW
+S -400 -200 400 200 0 0 10 f
+X +VIN 1 -600 100 200 R 40 40 0 0 I 
+X GND 4 -600 -100 200 R 40 40 0 0 W 
+X +VO 3 600 100 200 L 40 40 0 0 O 
+ENDDRAW
+ENDDEF
+#
+# End Library
