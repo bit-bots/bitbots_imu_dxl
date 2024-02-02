@@ -26,15 +26,12 @@ uint8_t baud;
 
 /*---------------------- IMU defines and variables ---------------------*/
 
-
-
-
 Bmi088Accel accel_handle(SPI, ACCEL_CS);
 Bmi088Gyro gyro_handle(SPI, GYRO_CS);
 
 // flag triggered by interrupt to read data from IMU
 // TODO: split into gyro and imu flag
-bool accel_drdy_flag, gyro_drdy_flag = false;
+volatile bool accel_drdy_flag, gyro_drdy_flag = false;
 
 // lists for storing measurements and filter outputs
 float gyro[3] = {0,0,0};
@@ -82,6 +79,7 @@ void setup() {
   
   disableCore0WDT(); // required since we dont want FreeRTOS to slow down our reading if the Wachdogtimer (WTD) fires
   disableCore1WDT();
+
   xTaskCreatePinnedToCore(
     TaskDXL
     ,  "TaskDXL"   // A name just for humans
@@ -239,7 +237,6 @@ void TaskDXL(void *pvParameters)
   
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON0, buttons[0]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON1, buttons[1]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON2, buttons[2]);
   
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_RANGE, gyro_range);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_RANGE, accel_range);
@@ -341,20 +338,26 @@ void setGyroRange(uint8_t range)
 
 void IRAM_ATTR accel_drdy_int() //IRAM_ATTR puts this function into ram, required since it is called as an interrupt
 {
+  /*
   if(calibrate_gyro) // TODO maybe remove this
     return;
+  */
   accel_drdy_flag = true;
 }
 
 void IRAM_ATTR gyro_drdy_int() //IRAM_ATTR puts this function into ram, required since it is called as an interrupt
 {
+  /*
   if(calibrate_gyro) // TODO maybe remove this?
     return;
+  */
   gyro_drdy_flag = true;
 }
 
 void TaskWorker(void *pvParameters) 
 {
+  SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
+
   (void) pvParameters;
   imu_prefs.begin("imu");
   if(imu_prefs.getUChar("init_imu") != 43) // check if prefs are initialized
@@ -384,12 +387,12 @@ void TaskWorker(void *pvParameters)
   // setup buttons
   pinMode(BUTTON0_PIN,INPUT_PULLUP);
   pinMode(BUTTON1_PIN,INPUT_PULLUP);
-  pinMode(BUTTON2_PIN,INPUT_PULLUP);
   
   int accel_status = accel_handle.begin();
   int gyro_status = gyro_handle.begin();
 
   #ifdef DEBUG
+  
   DEBUG_SERIAL.print("Accel status: ");
   DEBUG_SERIAL.println(accel_status);
   DEBUG_SERIAL.print("Gyro status: ");
@@ -423,48 +426,46 @@ void TaskWorker(void *pvParameters)
   gyro_handle.pinModeInt3(Bmi088Gyro::PUSH_PULL,Bmi088Gyro::ACTIVE_HIGH);
   gyro_handle.mapDrdyInt3(true);
 
-  pinMode(25,INPUT);
-  attachInterrupt(25,accel_drdy_int,RISING);
-  pinMode(26,INPUT);
-  attachInterrupt(26,gyro_drdy_int,RISING);  
+  pinMode(INT_ACCEL,INPUT);
+  attachInterrupt(INT_ACCEL,accel_drdy_int,RISING);
+  pinMode(INT_GYRO,INPUT);
+  attachInterrupt(INT_GYRO,gyro_drdy_int,RISING);  
 
   for (;;)
   {
     buttons[0] = !digitalRead(BUTTON0_PIN);
     buttons[1] = !digitalRead(BUTTON1_PIN);
-    buttons[2] = !digitalRead(BUTTON2_PIN);
-    if(gyro_drdy_flag && accel_drdy_flag)
+    if(accel_drdy_flag && gyro_drdy_flag)
     {
       accel_drdy_flag = false;
       gyro_drdy_flag = false;
       accel_handle.readSensor();
       gyro_handle.readSensor();
-      dt += 1.0f / 400;
-      float tmp_gyro[3], tmp_accel[3];
+      float tmp_accel[3], tmp_gyro[3];
+      dt += 1.0f / 400; //TODO: Change this
       tmp_gyro[0] = gyro_handle.getGyroX_rads();
       tmp_gyro[1] = gyro_handle.getGyroY_rads();
       tmp_gyro[2] = gyro_handle.getGyroZ_rads();
       tmp_accel[0] = accel_handle.getAccelX_mss();
       tmp_accel[1] = accel_handle.getAccelY_mss();
       tmp_accel[2] = accel_handle.getAccelZ_mss();
+      //DEBUG_SERIAL.print(tmp_accel[1]);
+      //DEBUG_SERIAL.print("\t");
+      //DEBUG_SERIAL.print(tmp_accel[2]);
+      //DEBUG_SERIAL.print("\t");
+      //DEBUG_SERIAL.print(tmp_accel[0]);
+      //DEBUG_SERIAL.print("\t");
       //DEBUG_SERIAL.print(tmp_gyro[0]);
       //DEBUG_SERIAL.print("\t");
       //DEBUG_SERIAL.print(tmp_gyro[1]);
       //DEBUG_SERIAL.print("\t");
       //DEBUG_SERIAL.print(tmp_gyro[2]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_accel[0]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_accel[1]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_accel[2]);
       //DEBUG_SERIAL.print("\n");
       //delay(100);
       // verify that data is valid
       // TODO check that it is within bounds and not all zeros
       if(isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]) || isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
-        continue;
-      
+        continue;      
       // copy data to global variables, no loops because compiler might not optimize them out
       gyro[0] = tmp_gyro[0];
       gyro[1] = tmp_gyro[1];
@@ -515,5 +516,4 @@ void TaskWorker(void *pvParameters)
       }*/
     }
   }
-  
 }

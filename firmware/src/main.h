@@ -10,9 +10,9 @@
 #define DEBUG true
 #define DEBUG_SERIAL Serial
 
-#define DXL_DIR_PIN 15
-#define DXL_U2_RX_PIN 16
-#define DXL_U2_TX_PIN 17
+#define DXL_DIR_PIN 22
+#define DXL_U2_RX_PIN 21
+#define DXL_U2_TX_PIN 23
 
 #define DXL_PROTOCOL_VER_2_0 2.0
 #define DXL_MODEL_NUM 0xbaff
@@ -66,16 +66,21 @@
 #define ADDR_CONTROL_ITEM_ACCEL_SCALE_Y 138
 #define ADDR_CONTROL_ITEM_ACCEL_SCALE_Z 142
 
+#define ACCEL_CS 26
+#define GYRO_CS 18
 
+#define SPI_MOSI 5 // Confirmed
+#define SPI_MISO 17 // Confirmed
+#define SPI_SCK 19 // Confirmed
 
-#define ACCEL_CS 12
-#define GYRO_CS 5
+#define INT_ACCEL 25 // Confirmed
+#define INT_GYRO 16 // Confirmed
 
 // default parameters for BMI088
-#define ACCEL_RANGE_DEFAULT Bmi088Accel::RANGE_12G
-#define ACCEL_ODR_DEFAULT Bmi088Accel::ODR_100HZ_BW_10HZ
-#define GYRO_RANGE_DEFAULT Bmi088Gyro::RANGE_500DPS
-#define GYRO_ODR_DEFAULT Bmi088Gyro::ODR_100HZ_BW_12HZ
+#define ACCEL_RANGE_DEFAULT Bmi088Accel::RANGE_6G
+#define ACCEL_ODR_DEFAULT Bmi088Accel::ODR_1600HZ_BW_280HZ
+#define GYRO_RANGE_DEFAULT Bmi088Gyro::RANGE_250DPS
+#define GYRO_ODR_DEFAULT Bmi088Gyro::ODR_2000HZ_BW_532HZ
 
 // default parameters for complementary filter
 #define IMU_GAIN_ACCEL_DEFAULT 0.04
@@ -86,9 +91,8 @@
 #define LED_PIN 4
 #define NUM_LEDS 3
 
-#define BUTTON0_PIN 27
-#define BUTTON1_PIN 14
-#define BUTTON2_PIN 12
+#define BUTTON0_PIN 2
+#define BUTTON1_PIN 15
 
 
 void setAccelRange(uint8_t range);
