@@ -77,9 +77,9 @@
 #define INT_GYRO 16 // Confirmed
 
 // default parameters for BMI088
-#define ACCEL_RANGE_DEFAULT Bmi088Accel::RANGE_6G
+#define ACCEL_RANGE_DEFAULT Bmi088Accel::RANGE_24G
 #define ACCEL_ODR_DEFAULT Bmi088Accel::ODR_1600HZ_BW_280HZ
-#define GYRO_RANGE_DEFAULT Bmi088Gyro::RANGE_250DPS
+#define GYRO_RANGE_DEFAULT Bmi088Gyro::RANGE_2000DPS
 #define GYRO_ODR_DEFAULT Bmi088Gyro::ODR_2000HZ_BW_532HZ
 
 // default parameters for complementary filter

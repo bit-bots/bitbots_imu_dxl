@@ -53,6 +53,7 @@ ComplementaryFilter::ComplementaryFilter() :
     initialized_(false),
     steady_state_(false),
     q0_(1), q1_(0), q2_(0), q3_(0),
+    q0_pred_(0), q1_pred_(0), q2_pred_(0), q3_pred_(0),
     wx_prev_(0), wy_prev_(0), wz_prev_(0),
     wx_bias_(0), wy_bias_(0), wz_bias_(0) { }
 
@@ -153,9 +154,7 @@ double ComplementaryFilter::getAngularVelocityBiasZ() const
   return wz_bias_;
 }
 
-void ComplementaryFilter::update(double ax, double ay, double az, 
-                                 double wx, double wy, double wz,
-                                 double dt)
+void ComplementaryFilter::update_acc(double ax, double ay, double az)
 {
   if (!initialized_) 
   {
@@ -166,21 +165,16 @@ void ComplementaryFilter::update(double ax, double ay, double az,
     return;
   }
   
-  // Bias estimation.
-  if (do_bias_estimation_)
-    updateBiases(ax, ay, az, wx, wy, wz);
-
-  // Prediction.
-  double q0_pred, q1_pred, q2_pred, q3_pred;
-  getPrediction(wx, wy, wz, dt,
-                q0_pred, q1_pred, q2_pred, q3_pred);   
+  // // Bias estimation. //TODO: Make new bias estimation
+  // if (do_bias_estimation_)
+  //   updateBiases(ax, ay, az, wx, wy, wz); 
      
   // Correction (from acc): 
   // q_ = q_pred * [(1-gain) * qI + gain * dq_acc]
   // where qI = identity quaternion
   double dq0_acc, dq1_acc, dq2_acc, dq3_acc;  
   getAccCorrection(ax, ay, az,
-                   q0_pred, q1_pred, q2_pred, q3_pred,
+                   q0_, q1_, q2_, q3_,
                    dq0_acc, dq1_acc, dq2_acc, dq3_acc);
   
   double gain;
@@ -197,11 +191,24 @@ void ComplementaryFilter::update(double ax, double ay, double az,
 
   scaleQuaternion(gain, dq0_acc, dq1_acc, dq2_acc, dq3_acc);
 
-  quaternionMultiplication(q0_pred, q1_pred, q2_pred, q3_pred,
+  quaternionMultiplication(q0_, q1_, q2_, q3_,
                            dq0_acc, dq1_acc, dq2_acc, dq3_acc,
                            q0_, q1_, q2_, q3_);
 
   normalizeQuaternion(q0_, q1_, q2_, q3_);
+}
+
+void ComplementaryFilter::update_gyro(double wx, double wy, double wz,
+                                 double dt)
+{  
+  // // Bias estimation. TODO: Add bias estimation later
+  // if (do_bias_estimation_)
+  //   updateBiases(ax, ay, az, wx, wy, wz);
+
+  // Prediction.
+  double q0_pred, q1_pred, q2_pred, q3_pred;
+  getPrediction(wx, wy, wz, dt,
+                q0_pred, q1_pred, q2_pred, q3_pred);
 }
 
 void ComplementaryFilter::update(double ax, double ay, double az, 

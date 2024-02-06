@@ -30,7 +30,6 @@ Bmi088Accel accel_handle(SPI, ACCEL_CS);
 Bmi088Gyro gyro_handle(SPI, GYRO_CS);
 
 // flag triggered by interrupt to read data from IMU
-// TODO: split into gyro and imu flag
 volatile bool accel_drdy_flag, gyro_drdy_flag = false;
 
 // lists for storing measurements and filter outputs
@@ -50,7 +49,7 @@ bool do_adaptive_gain, do_bias_estimation;
 float accel_gain, bias_alpha;
 
 imu_tools::ComplementaryFilter filter_;
-float dt = 0; // time delta between readings
+unsigned long last_gyro_update = esp_timer_get_time();
 
 /*---------------------- LEDS ---------------------*/
 
@@ -74,7 +73,7 @@ void setup() {
   FastLED.setBrightness(128);
 
   #ifdef DEBUG
-    DEBUG_SERIAL.begin(115200);
+    DEBUG_SERIAL.begin(1000000);
   #endif
   
   disableCore0WDT(); // required since we dont want FreeRTOS to slow down our reading if the Wachdogtimer (WTD) fires
@@ -224,7 +223,7 @@ void TaskDXL(void *pvParameters)
   dxl.addControlItem(ADDR_CONTROL_ITEM_LED2_G, leds[2].g);
   dxl.addControlItem(ADDR_CONTROL_ITEM_LED2_B, leds[2].b);
 
-  dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_X, gyro[0]);
+  dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_X, gyro[0]); //TODO: 16 bit anstatt float
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_Y, gyro[1]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_Z, gyro[2]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_X, accel[0]);
@@ -254,7 +253,6 @@ void TaskDXL(void *pvParameters)
   
   pinMode(DXL_DIR_PIN, OUTPUT);
   // init uart 0, given baud, 8bits 1stop no parity, rx pin 14, tx pin 27, 256 buffer, no inversion
-  // TODO verify pinout
   // uart_t* uartBegin(uint8_t uart_nr, uint32_t baudrate, uint32_t config, int8_t rxPin, int8_t txPin, uint16_t rx_buffer_size, uint16_t tx_buffer_size, bool inverted, uint8_t rxfifo_full_thrhd)
   uart = uartBegin(1, dxl_to_real_baud(baud), SERIAL_8N1, DXL_U2_RX_PIN, DXL_U2_TX_PIN,  256, 256, false, 122);
   // disable all interrupts
@@ -338,19 +336,11 @@ void setGyroRange(uint8_t range)
 
 void IRAM_ATTR accel_drdy_int() //IRAM_ATTR puts this function into ram, required since it is called as an interrupt
 {
-  /*
-  if(calibrate_gyro) // TODO maybe remove this
-    return;
-  */
   accel_drdy_flag = true;
 }
 
 void IRAM_ATTR gyro_drdy_int() //IRAM_ATTR puts this function into ram, required since it is called as an interrupt
 {
-  /*
-  if(calibrate_gyro) // TODO maybe remove this?
-    return;
-  */
   gyro_drdy_flag = true;
 }
 
@@ -411,10 +401,10 @@ void TaskWorker(void *pvParameters)
 
   gyro_range = imu_prefs.getUChar("gyro_range");
   //setGyroRange(gyro_range);
-  gyro_handle.setRange(Bmi088Gyro::RANGE_250DPS); // TODO remove this (for testing
+  gyro_handle.setRange(GYRO_RANGE_DEFAULT);
   accel_range = imu_prefs.getUChar("accel_range");
   //setAccelRange(accel_range);
-  accel_handle.setRange(Bmi088Accel::RANGE_6G); // TODO remove this (for testing
+  accel_handle.setRange(ACCEL_RANGE_DEFAULT);
 
   accel_handle.setOdr(ACCEL_ODR_DEFAULT);
   gyro_handle.setOdr(GYRO_ODR_DEFAULT);
@@ -435,47 +425,21 @@ void TaskWorker(void *pvParameters)
   {
     buttons[0] = !digitalRead(BUTTON0_PIN);
     buttons[1] = !digitalRead(BUTTON1_PIN);
-    if(accel_drdy_flag && gyro_drdy_flag)
-    {
+    if (accel_drdy_flag){
       accel_drdy_flag = false;
-      gyro_drdy_flag = false;
       accel_handle.readSensor();
-      gyro_handle.readSensor();
-      float tmp_accel[3], tmp_gyro[3];
-      dt += 1.0f / 400; //TODO: Change this
-      tmp_gyro[0] = gyro_handle.getGyroX_rads();
-      tmp_gyro[1] = gyro_handle.getGyroY_rads();
-      tmp_gyro[2] = gyro_handle.getGyroZ_rads();
+      float tmp_accel[3];
       tmp_accel[0] = accel_handle.getAccelX_mss();
       tmp_accel[1] = accel_handle.getAccelY_mss();
       tmp_accel[2] = accel_handle.getAccelZ_mss();
-      //DEBUG_SERIAL.print(tmp_accel[1]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_accel[2]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_accel[0]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_gyro[0]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_gyro[1]);
-      //DEBUG_SERIAL.print("\t");
-      //DEBUG_SERIAL.print(tmp_gyro[2]);
-      //DEBUG_SERIAL.print("\n");
-      //delay(100);
-      // verify that data is valid
-      // TODO check that it is within bounds and not all zeros
-      if(isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]) || isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
-        continue;      
+      if(isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
+        return;
       // copy data to global variables, no loops because compiler might not optimize them out
-      gyro[0] = tmp_gyro[0];
-      gyro[1] = tmp_gyro[1];
-      gyro[2] = tmp_gyro[2];
       accel[0] = tmp_accel[0];
       accel[1] = tmp_accel[1];
       accel[2] = tmp_accel[2];
 
-      filter_.update(accel[0], accel[1], accel[2], gyro[0], gyro[1], gyro[2], dt);
-      dt = 0; // reset dt, dt accumulates if measurements in between are invalid
+      filter_.update_acc(accel[0], accel[1], accel[2]);
 
       double q0,q1,q2,q3;
       filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
@@ -483,8 +447,41 @@ void TaskWorker(void *pvParameters)
       quat[1] = q2;
       quat[2] = q3;
       quat[3] = q0;
+      // #if DEBUG
+      //   DEBUG_SERIAL.println("accel");
+      // #endif //DEBUG
+    }
 
-      
+    if (gyro_drdy_flag){
+      gyro_drdy_flag = false;
+  
+      gyro_handle.readSensor();
+      float tmp_gyro[3];
+      tmp_gyro[0] = gyro_handle.getGyroX_rads();
+      tmp_gyro[1] = gyro_handle.getGyroY_rads();
+      tmp_gyro[2] = gyro_handle.getGyroZ_rads();
+
+      if(isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
+        return;      
+      // copy data to global variables, no loops because compiler might not optimize them out
+      gyro[0] = tmp_gyro[0];
+      gyro[1] = tmp_gyro[1];
+      gyro[2] = tmp_gyro[2];
+      unsigned long current_update_time = esp_timer_get_time();
+      float dt = (float) (last_gyro_update - current_update_time) / 1e6;
+      last_gyro_update = current_update_time;
+      filter_.update_gyro(gyro[0], gyro[1], gyro[2], dt);
+      double q0,q1,q2,q3;
+      filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
+      quat[0] = q1;
+      quat[1] = q2;
+      quat[2] = q3;
+      quat[3] = q0;
+      // #if DEBUG
+      //   DEBUG_SERIAL.println("gyro");
+      // #endif //DEBUG
+    }
+    if (true) {
       #if DEBUG
         DEBUG_SERIAL.print(gyro[0]);
         DEBUG_SERIAL.print("\t");
@@ -498,22 +495,15 @@ void TaskWorker(void *pvParameters)
         DEBUG_SERIAL.print("\t");
         DEBUG_SERIAL.print(accel[2]);
         DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(q0);
+        DEBUG_SERIAL.print(quat[0]);
         DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(q1);
+        DEBUG_SERIAL.print(quat[1]);
         DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(q2);
+        DEBUG_SERIAL.print(quat[2]);
         DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(q3);
+        DEBUG_SERIAL.print(quat[3]);
         DEBUG_SERIAL.print("\n");
       #endif
-      // TODO this should be done before the update step probably
-      /*if (filter_.getDoBiasEstimation())
-      {
-        gyro[0] -= filter_.getAngularVelocityBiasX();
-        gyro[1] -= filter_.getAngularVelocityBiasY();
-        gyro[2] -= filter_.getAngularVelocityBiasZ();
-      }*/
     }
   }
 }
