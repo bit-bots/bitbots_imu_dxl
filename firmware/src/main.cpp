@@ -14,7 +14,7 @@ Preferences imu_prefs;
 
 
 uart_t* uart;
-DYNAMIXEL::FastSlave dxl(DXL_MODEL_NUM, DXL_PROTOCOL_VER_2_0);
+DYNAMIXEL::FastSlave dxl(DXL_MODEL_NUM, DXL_DIR_PIN, DXL_PROTOCOL_VER_2_0);
 
 
 
@@ -72,9 +72,9 @@ void setup() {
   FastLED.show();
   FastLED.setBrightness(128);
 
-  #ifdef DEBUG
-    DEBUG_SERIAL.begin(1000000);
-  #endif
+  //#ifdef DEBUG
+    DEBUG_SERIAL.begin(115200);
+  //#endif
   
   disableCore0WDT(); // required since we dont want FreeRTOS to slow down our reading if the Wachdogtimer (WTD) fires
   disableCore1WDT();
@@ -120,6 +120,8 @@ uint32_t dxl_to_real_baud(uint8_t baud)
     case 6: real_baud = 4000000; break;
     case 7: real_baud = 4500000; break;
   }
+  DEBUG_SERIAL.print("baud: ");
+  DEBUG_SERIAL.println(real_baud);
   return real_baud;
 }
 
@@ -194,7 +196,7 @@ void TaskDXL(void *pvParameters)
   (void) pvParameters;
 
   dxl_prefs.begin("dxl");
-  if(dxl_prefs.getUChar("init") != 42) // check if prefs are initialized
+  if(dxl_prefs.getUChar("init") != 43) // check if prefs are initialized
   {
     Serial.println("Initializing dxl prefs");
     dxl_prefs.putUChar("id", DEFAULT_ID);
@@ -252,6 +254,7 @@ void TaskDXL(void *pvParameters)
   dxl.setWriteCallbackFunc(write_callback_func);
   
   pinMode(DXL_DIR_PIN, OUTPUT);
+  digitalWrite(DXL_DIR_PIN, LOW);
   // init uart 0, given baud, 8bits 1stop no parity, rx pin 14, tx pin 27, 256 buffer, no inversion
   // uart_t* uartBegin(uint8_t uart_nr, uint32_t baudrate, uint32_t config, int8_t rxPin, int8_t txPin, uint16_t rx_buffer_size, uint16_t tx_buffer_size, bool inverted, uint8_t rxfifo_full_thrhd)
   uart = uartBegin(1, dxl_to_real_baud(baud), SERIAL_8N1, DXL_U2_RX_PIN, DXL_U2_TX_PIN,  256, 256, false, 122);
@@ -260,7 +263,15 @@ void TaskDXL(void *pvParameters)
   uart->dev->int_ena.rxfifo_full = 0;
   uart->dev->int_ena.frm_err = 0;
   uart->dev->int_ena.rxfifo_tout = 0;
-
+  /*
+  for (;;)
+  {
+    if (uart->dev->status.rxfifo_cnt != 0 || (uart->dev->mem_rx_status.wr_addr != uart->dev->mem_rx_status.rd_addr)) {
+      char c = uart->dev->fifo.rw_byte;
+      DEBUG_SERIAL.print(c, HEX);
+    }
+  }
+    */
   for (;;)
   {
     
@@ -271,7 +282,7 @@ void TaskDXL(void *pvParameters)
         dxl_prefs.putUChar("id", id);
       }
     }
-    #ifdef DEBUG
+    //#ifdef DEBUG
     else {
         DEBUG_SERIAL.print("Last lib err code: ");
         DEBUG_SERIAL.print(dxl.getLastLibErrCode());
@@ -280,7 +291,7 @@ void TaskDXL(void *pvParameters)
         DEBUG_SERIAL.println(dxl.getLastStatusPacketError());
         DEBUG_SERIAL.println();
     }
-    #endif
+    //#endif
   }
 
 }

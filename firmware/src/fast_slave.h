@@ -43,8 +43,8 @@ namespace DYNAMIXEL{
 class FastSlave
 {
   public:
-    FastSlave(DXLPortHandler &port, const uint16_t model_num, float protocol_ver = 2.0);
-    FastSlave(const uint16_t model_num, float protocol_ver = 2.0);      
+    FastSlave(DXLPortHandler &port, uint8_t dxl_dir_pin, const uint16_t model_num, float protocol_ver = 2.0);
+    FastSlave(const uint16_t model_num, uint8_t dxl_dir_pin, float protocol_ver = 2.0);      
 
     bool setPacketBuffer(uint8_t* p_buf, uint16_t buf_capacity);
     uint8_t* getPacketBuffer() const;
@@ -105,6 +105,7 @@ class FastSlave
     uint8_t protocol_ver_idx_;
     uint8_t firmware_ver_;
     uint8_t id_;
+    uint8_t dxl_dir_pin_;
 
     bool is_buf_malloced_;
     uint8_t *p_packet_buf_;

@@ -7,7 +7,7 @@
 #include "fast_slave.h"
 
 
-#define DEBUG true
+#define DEBUG false
 #define DEBUG_SERIAL Serial
 
 #define DXL_DIR_PIN 22
@@ -17,7 +17,7 @@
 #define DXL_PROTOCOL_VER_2_0 2.0
 #define DXL_MODEL_NUM 0xbaff
 #define DEFAULT_ID 241
-#define DEFAULT_BAUD 4 //2mbaud
+#define DEFAULT_BAUD 3 //1mbaud
 
 #define ADDR_CONTROL_ITEM_BAUD 8
 

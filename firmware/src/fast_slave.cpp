@@ -14,7 +14,7 @@ static bool isAddrInRange(uint16_t addr, uint16_t length, uint16_t range_addr, u
 static bool isAddrInOtherItem(uint16_t start_addr, uint16_t length, uint16_t other_start_addr, uint16_t other_length);
 
 
-FastSlave::FastSlave(DXLPortHandler &port, const uint16_t model_num, float protocol_ver)
+FastSlave::FastSlave(DXLPortHandler &port, uint8_t dxl_dir_pin, const uint16_t model_num, float protocol_ver)
 : model_num_(model_num), protocol_ver_idx_(2), firmware_ver_(1), id_(1),
   is_buf_malloced_(false), packet_buf_capacity_(0),
   last_lib_err_(DXL_LIB_OK),
@@ -31,9 +31,11 @@ FastSlave::FastSlave(DXLPortHandler &port, const uint16_t model_num, float proto
   }
   info_tx_packet_.is_init = false;
   info_rx_packet_.is_init = false;
+
+  dxl_dir_pin_ = dxl_dir_pin;
 }
 
-FastSlave::FastSlave(const uint16_t model_num, float protocol_ver)
+FastSlave::FastSlave(const uint16_t model_num, uint8_t dxl_dir_pin, float protocol_ver)
 : model_num_(model_num), protocol_ver_idx_(2), firmware_ver_(1), id_(1),
   is_buf_malloced_(false), packet_buf_capacity_(0),
   last_lib_err_(DXL_LIB_OK),
@@ -49,6 +51,8 @@ FastSlave::FastSlave(const uint16_t model_num, float protocol_ver)
   }  
   info_tx_packet_.is_init = false;
   info_rx_packet_.is_init = false;
+
+  dxl_dir_pin_ = dxl_dir_pin;
 }
 
 
@@ -657,17 +661,17 @@ FastSlave::txStatusPacket(uint8_t id, uint8_t err_code, uint8_t *p_param, uint16
   add_param_to_dxl_packet(&info_tx_packet_, p_param, param_len);
   err = end_make_dxl_packet(&info_tx_packet_);
   if(err == DXL_LIB_OK){
-    //p_port_->write(info_tx_packet_.p_packet_buf, info_tx_packet_.generated_packet_length);
-    //uart_write_bytes(UART_NUM_0, (const char *) info_tx_packet_.p_packet_buf, info_tx_packet_.generated_packet_length);
-    digitalWrite(22, HIGH);
+    digitalWrite(dxl_dir_pin_, HIGH);
     // wait for pin to be high
-    while(digitalRead(22) != HIGH);
-    for(int i = 0; i < info_tx_packet_.generated_packet_length; i++) {
-      uart_->dev->fifo.rw_byte = info_tx_packet_.p_packet_buf[i];
-    }
-    // make sure data is written on bus
-    while(uart_->dev->status.txfifo_cnt || uart_->dev->status.st_utx_out);
-    digitalWrite(22, LOW);
+    while(digitalRead(dxl_dir_pin_) != HIGH);
+    Serial.print("Sending Status Packet on ");
+    Serial.println(uart_->num);
+    Serial.print(dxl_dir_pin_);
+    Serial.flush(); // Flush the
+    uartWriteBuf(uart_, info_tx_packet_.p_packet_buf, info_tx_packet_.generated_packet_length);
+    uartFlush(uart_);
+
+    digitalWrite(dxl_dir_pin_, LOW);
 
     ret = true;
   }
@@ -689,8 +693,9 @@ FastSlave::rxInstPacket(uint8_t* p_param_buf, uint16_t param_buf_cap)
   begin_parse_dxl_packet(&info_rx_packet_, protocol_ver_idx_, p_param_buf, param_buf_cap);
   while(true)
   {
-    while(uart_->dev->status.rxfifo_cnt != 0 || (uart_->dev->mem_rx_status.wr_addr != uart_->dev->mem_rx_status.rd_addr)) {
-      c = uart_->dev->fifo.rw_byte;
+    while(uartAvailable(uart_)>0){
+      c = uartRead(uart_);
+      //Serial.write(c);
       err = parse_dxl_packet(&info_rx_packet_, c); //data[i]);
       if (err == DXL_LIB_OK) {
         // the package is complete and correct
