@@ -1,9 +1,10 @@
-#include "BMI088.h"
+#include <array>
+#include <Preferences.h>
 #include <Dynamixel2Arduino.h>
 #include <FastLED.h>
-#include <array>
+#include "BMI088.h"
 #include "complementary_filter.h"
-#include <Preferences.h>
+#include "uart_port_handler.h"
 
 
 #define DEBUG false

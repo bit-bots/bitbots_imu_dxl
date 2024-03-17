@@ -28,18 +28,16 @@ if read_dxl_status_pkg(ser):
     print('Success!')
 else:
     print('Failure!')
-    #exit()
+    exit()
 
-#print('Testing response to packets with byte stuffing... ', end='')
-#ser.write(sync_read)
-#sleep(0.02)
-#ser.write(response_19)
-#sleep(0.02)
-#ser.write(response_20)
-#sleep(0.02)
-while True:
-    ser.write(read_imu)
-    sleep(1.0)
+print('Testing response to packets with byte stuffing... ', end='')
+ser.write(sync_read)
+sleep(0.02)
+ser.write(response_19)
+sleep(0.02)
+ser.write(response_20)
+sleep(0.02)
+ser.write(read_imu)
 
 if read_dxl_status_pkg(ser):
     print('Success!')

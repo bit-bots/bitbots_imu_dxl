@@ -28,12 +28,11 @@ class ESP32UartPortHandler : public DXLPortHandler{
     uint8_t uart_num_;
     uint32_t write_pointer_ = 0;
     uint32_t read_pointer_ = 0;
-    int intr_cnt = 0;
 
   private:
     void IRAM_ATTR uart_isr(void* arg);
 
-
+    int intr_cnt = 0;
     uint8_t tx_pin_;
     uint8_t rx_pin_;
     uint8_t dxl_dir_pin_;

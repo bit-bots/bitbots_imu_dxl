@@ -4,19 +4,19 @@ static intr_handle_t uart_isr_intr_handle;
 
 void IRAM_ATTR static_uart_isr(void* arg) {
   ESP32UartPortHandler* uart_port = (ESP32UartPortHandler*)arg;
-  uart_port->intr_cnt++;
 
+  uart_dev_t* uart_dev = ESP32_UART_DEVICES[uart_port->uart_num_];
 
-  uint16_t status = ESP32_UART_DEVICES[uart_port->uart_num_]->int_st.val;
-  uint16_t rx_fifo_len = ESP32_UART_DEVICES[uart_port->uart_num_]->status.rxfifo_cnt;
+  uint16_t status = uart_dev->int_st.val;
+  uint16_t rx_fifo_len = uart_dev->status.rxfifo_cnt;
 
   for (int i = 0 ; i < rx_fifo_len; i++) { // evtl eine while schleife mit der unteren bedingung
-    uart_port->buffer_[uart_port->write_pointer_] = ESP32_UART_DEVICES[uart_port->uart_num_]->fifo.rw_byte;
+    uart_port->buffer_[uart_port->write_pointer_] = uart_dev->fifo.rw_byte;
     uart_port->write_pointer_ = (uart_port->write_pointer_ + 1) % UART_BUFFER_SIZE;
   }
-  while (ESP32_UART_DEVICES[uart_port->uart_num_]->status.rxfifo_cnt || (ESP32_UART_DEVICES[uart_port->uart_num_]->mem_rx_status.wr_addr != ESP32_UART_DEVICES[uart_port->uart_num_]->mem_rx_status.rd_addr))
+  while (uart_dev->status.rxfifo_cnt || (uart_dev->mem_rx_status.wr_addr != uart_dev->mem_rx_status.rd_addr))
   {
-      ESP32_UART_DEVICES[uart_port->uart_num_]->fifo.rw_byte;
+      uart_dev->fifo.rw_byte;
   }
   uart_clear_intr_status(uart_port->uart_num_, status);
 }

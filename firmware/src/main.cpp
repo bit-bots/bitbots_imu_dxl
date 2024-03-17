@@ -1,10 +1,4 @@
-
 #include <main.h>
-#include <driver/uart.h>
-#include <soc/uart_reg.h>
-#include <uart_port_handler.h>
-#include <utility/port_handler.h>
-
 
 // define two tasks for reading the dxl bus and doing other work
 void TaskDXL( void *pvParameters );
@@ -263,24 +257,9 @@ void TaskDXL(void *pvParameters)
 
   uart.setBaudRate(dxl_to_real_baud(baud));
   uart.begin();
-  //int read_bytes = 0;
-  //bool new_package = false;
+  
   for (;;)
   {
-    /*int rx_bytes = uart.available();
-    if(rx_bytes > 0)
-    {
-      uint8_t c = uart.read();
-      read_bytes++;
-      new_package = true;
-    }
-    if (new_package && read_bytes % 14 == 0)
-    {
-      new_package=false;
-      digitalWrite(DXL_DIR_PIN, HIGH);
-      delay(1);
-      digitalWrite(DXL_DIR_PIN, LOW);
-    }*/
     
     if(dxl.processPacket()){
       if(dxl.getID() != id) // since we cant add the id as a control item, we need to check if it has been updated manually
