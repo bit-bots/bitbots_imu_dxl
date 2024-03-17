@@ -4,7 +4,6 @@
 #include <array>
 #include "complementary_filter.h"
 #include <Preferences.h>
-#include "fast_slave.h"
 
 
 #define DEBUG false

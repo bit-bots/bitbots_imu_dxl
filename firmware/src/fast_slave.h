@@ -86,7 +86,7 @@ class FastSlave
     uint8_t addControlItem(uint16_t start_addr, float &data);
     uint8_t addControlItem(uint16_t start_addr, double &data);
 
-    bool processPacket(uint8_t uart);
+    bool processPacket(uart_t* uart);
 
     uint8_t getLastStatusPacketError() const;
 
@@ -99,7 +99,7 @@ class FastSlave
 
   private:
     DXLPortHandler *p_port_;
-    uint8_t uart_;
+    uart_t* uart_;
     
     const uint16_t model_num_;
     uint8_t protocol_ver_idx_;

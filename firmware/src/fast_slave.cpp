@@ -175,7 +175,7 @@ FastSlave::getFirmwareVersion() const
 }
 
 bool 
-FastSlave::processPacket(uint8_t uart_port)
+FastSlave::processPacket(uart_t* uart_port)
 {
   uart_ = uart_port;
   bool ret = false;
@@ -662,7 +662,7 @@ FastSlave::txStatusPacket(uint8_t id, uint8_t err_code, uint8_t *p_param, uint16
   add_param_to_dxl_packet(&info_tx_packet_, p_param, param_len);
   err = end_make_dxl_packet(&info_tx_packet_);
   if(err == DXL_LIB_OK){
-    uart_write_bytes(uart_, info_tx_packet_.p_packet_buf, info_tx_packet_.generated_packet_length);
+    //uart_write_bytes(uart_, info_tx_packet_.p_packet_buf, info_tx_packet_.generated_packet_length);
     ret = true;
   }
 
@@ -676,37 +676,29 @@ FastSlave::rxInstPacket(uint8_t* p_param_buf, uint16_t param_buf_cap)
 {
   InfoToParseDXLPacket_t *p_ret = nullptr;
   DXLLibErrorCode_t err = DXL_LIB_OK;
-  char c;
-  uint8_t* data = (uint8_t*) malloc(4+1); 
+  uint8_t c;
 
   // Receive Instruction Packet
   begin_parse_dxl_packet(&info_rx_packet_, protocol_ver_idx_, p_param_buf, param_buf_cap);
   while(true)
-  {
-
-    const int rxBytes = uart_read_bytes(uart_, data, 4, 0);
-    if (rxBytes == 0)
-      continue;
-    
-    //Serial1.println(rxBytes, HEX);
-    for(int i=0; i<rxBytes; i++){
-      err = parse_dxl_packet(&info_rx_packet_, data[i]);
-      if (err == DXL_LIB_OK) {
-        // the package is complete and correct
-        if ((protocol_ver_idx_ == 2 && info_rx_packet_.inst_idx != DXL_INST_STATUS)
-            || protocol_ver_idx_ == 1) {
-          if (info_rx_packet_.id == id_ || info_rx_packet_.id == DXL_BROADCAST_ID) {
-            // the package is for us
-            return true;
-          } else {
-            begin_parse_dxl_packet(&info_rx_packet_, protocol_ver_idx_, p_param_buf, param_buf_cap);
-          }
-          return false;
+  { 
+    err = parse_dxl_packet(&info_rx_packet_, c);
+    if (err == DXL_LIB_OK) {
+      // the package is complete and correct
+      if ((protocol_ver_idx_ == 2 && info_rx_packet_.inst_idx != DXL_INST_STATUS)
+          || protocol_ver_idx_ == 1) {
+        if (info_rx_packet_.id == id_ || info_rx_packet_.id == DXL_BROADCAST_ID) {
+          // the package is for us
+          return true;
+        } else {
+          begin_parse_dxl_packet(&info_rx_packet_, protocol_ver_idx_, p_param_buf, param_buf_cap);
         }
-      } else if (err != DXL_LIB_PROCEEDING) {
         return false;
       }
+    } else if (err != DXL_LIB_PROCEEDING) {
+      return false;
     }
+    //}
   }
 }
 
