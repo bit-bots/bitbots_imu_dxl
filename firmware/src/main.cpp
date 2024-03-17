@@ -1,5 +1,6 @@
 #include <main.h>
-
+#include <driver/uart.h>
+#include <soc/uart_reg.h>
 
 // define two tasks for reading the dxl bus and doing other work
 void TaskDXL( void *pvParameters );
@@ -73,7 +74,7 @@ void setup() {
   FastLED.setBrightness(128);
 
   //#ifdef DEBUG
-    DEBUG_SERIAL.begin(115200);
+    DEBUG_SERIAL.begin(115200, SERIAL_8N1, 3, 1);
   //#endif
   
   disableCore0WDT(); // required since we dont want FreeRTOS to slow down our reading if the Wachdogtimer (WTD) fires
@@ -131,7 +132,7 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
   if (item_addr == ADDR_CONTROL_ITEM_BAUD)
   {
     dxl_prefs.putUChar("baud", baud);
-    ESP.restart(); // restart whole chip since restarting serial port crashes esp
+    //ESP.restart(); // restart whole chip since restarting serial port crashes esp
   } 
   else if(item_addr == ADDR_CONTROL_ITEM_GYRO_RANGE)
   {
@@ -196,14 +197,14 @@ void TaskDXL(void *pvParameters)
   (void) pvParameters;
 
   dxl_prefs.begin("dxl");
-  if(dxl_prefs.getUChar("init") != 43) // check if prefs are initialized
+  if(dxl_prefs.getUChar("init") != 42) // check if prefs are initialized
   {
-    Serial.println("Initializing dxl prefs");
+    DEBUG_SERIAL.println("Initializing dxl prefs");
     dxl_prefs.putUChar("id", DEFAULT_ID);
     dxl_prefs.putUChar("baud", DEFAULT_BAUD);
     dxl_prefs.putUChar("init", 42); // set initialized
   } else {
-    Serial.println("dxl prefs already initialized");
+    DEBUG_SERIAL.println("dxl prefs already initialized");
   }
   id = dxl_prefs.getUChar("id");
   baud = dxl_prefs.getUChar("baud");
@@ -253,29 +254,52 @@ void TaskDXL(void *pvParameters)
 
   dxl.setWriteCallbackFunc(write_callback_func);
   
-  pinMode(DXL_DIR_PIN, OUTPUT);
-  digitalWrite(DXL_DIR_PIN, LOW);
+  //pinMode(DXL_DIR_PIN, OUTPUT);
+  //digitalWrite(DXL_DIR_PIN, LOW);
   // init uart 0, given baud, 8bits 1stop no parity, rx pin 14, tx pin 27, 256 buffer, no inversion
   // uart_t* uartBegin(uint8_t uart_nr, uint32_t baudrate, uint32_t config, int8_t rxPin, int8_t txPin, uint16_t rx_buffer_size, uint16_t tx_buffer_size, bool inverted, uint8_t rxfifo_full_thrhd)
-  uart = uartBegin(1, dxl_to_real_baud(baud), SERIAL_8N1, DXL_U2_RX_PIN, DXL_U2_TX_PIN,  256, 256, false, 122);
+  //uart = uartBegin(0, dxl_to_real_baud(baud), SERIAL_8N1, DXL_U2_RX_PIN, DXL_U2_TX_PIN,  256, false, false, 122);
+  //uartSetMode(uart, UART_MODE_RS485_HALF_DUPLEX);
+  //uartSetPins(0, DXL_U2_TX_PIN, DXL_U2_RX_PIN, DXL_DIR_PIN, UART_PIN_NO_CHANGE);
   // disable all interrupts
-  uart->dev->conf1.rx_tout_en = 0;
-  uart->dev->int_ena.rxfifo_full = 0;
-  uart->dev->int_ena.frm_err = 0;
-  uart->dev->int_ena.rxfifo_tout = 0;
-  /*
-  for (;;)
-  {
-    if (uart->dev->status.rxfifo_cnt != 0 || (uart->dev->mem_rx_status.wr_addr != uart->dev->mem_rx_status.rd_addr)) {
-      char c = uart->dev->fifo.rw_byte;
-      DEBUG_SERIAL.print(c, HEX);
-    }
-  }
-    */
+  //uart->dev->conf1.rx_tout_en = 0;
+  //uart->dev->int_ena.rxfifo_full = 0;
+  //uart->dev->int_ena.frm_err = 0;
+  //uart->dev->int_ena.rxfifo_tout = 0;
+
+
+  const uart_config_t uart_config = {
+        .baud_rate = dxl_to_real_baud(baud),
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_APB,
+  };
+  uart_intr_config_t uart_intr = {
+    .intr_enable_mask = UART_RXFIFO_FULL_INT_ENA_M
+                        | UART_RXFIFO_TOUT_INT_ENA_M
+                        | UART_FRM_ERR_INT_ENA_M
+                        | UART_RXFIFO_OVF_INT_ENA_M
+                        | UART_BRK_DET_INT_ENA_M
+                        | UART_PARITY_ERR_INT_ENA_M,
+    .rx_timeout_thresh = 100,
+    .txfifo_empty_intr_thresh = 10,
+    .rxfifo_full_thresh = 1,
+  };
+  uart_driver_install(UART_NUM_0, 256 * 2, 0, 0, NULL, 0);
+  uart_param_config(UART_NUM_0, &uart_config);
+  uart_intr_config(UART_NUM_0, &uart_intr);
+  uart_set_pin(UART_NUM_0, DXL_U2_TX_PIN, DXL_U2_RX_PIN, DXL_DIR_PIN, UART_PIN_NO_CHANGE);
+  uart_set_mode(UART_NUM_0, UART_MODE_RS485_HALF_DUPLEX);
+  //uart_disable_rx_intr(UART_NUM_0);
+  //uart_disable_tx_intr(UART_NUM_0);
+
+
   for (;;)
   {
     
-    if(dxl.processPacket(uart)){
+    if(dxl.processPacket(UART_NUM_0)){
       if(dxl.getID() != id) // since we cant add the id as a control item, we need to check if it has been updated manually
       {
         id = dxl.getID();

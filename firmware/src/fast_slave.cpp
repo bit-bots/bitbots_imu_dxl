@@ -1,4 +1,5 @@
 #include "fast_slave.h"
+#include <driver/uart.h>
 
 using namespace DYNAMIXEL;
 
@@ -174,9 +175,9 @@ FastSlave::getFirmwareVersion() const
 }
 
 bool 
-FastSlave::processPacket(uart_t* uart)
+FastSlave::processPacket(uint8_t uart_port)
 {
-  uart_ = uart;
+  uart_ = uart_port;
   bool ret = false;
   if(rxInstPacket(p_packet_buf_, packet_buf_capacity_)){
     ret = processInst(info_rx_packet_.inst_idx);
@@ -661,18 +662,7 @@ FastSlave::txStatusPacket(uint8_t id, uint8_t err_code, uint8_t *p_param, uint16
   add_param_to_dxl_packet(&info_tx_packet_, p_param, param_len);
   err = end_make_dxl_packet(&info_tx_packet_);
   if(err == DXL_LIB_OK){
-    digitalWrite(dxl_dir_pin_, HIGH);
-    // wait for pin to be high
-    while(digitalRead(dxl_dir_pin_) != HIGH);
-    Serial.print("Sending Status Packet on ");
-    Serial.println(uart_->num);
-    Serial.print(dxl_dir_pin_);
-    Serial.flush(); // Flush the
-    uartWriteBuf(uart_, info_tx_packet_.p_packet_buf, info_tx_packet_.generated_packet_length);
-    uartFlush(uart_);
-
-    digitalWrite(dxl_dir_pin_, LOW);
-
+    uart_write_bytes(uart_, info_tx_packet_.p_packet_buf, info_tx_packet_.generated_packet_length);
     ret = true;
   }
 
@@ -686,17 +676,21 @@ FastSlave::rxInstPacket(uint8_t* p_param_buf, uint16_t param_buf_cap)
 {
   InfoToParseDXLPacket_t *p_ret = nullptr;
   DXLLibErrorCode_t err = DXL_LIB_OK;
-  uint8_t data[128];
   char c;
+  uint8_t* data = (uint8_t*) malloc(4+1); 
 
   // Receive Instruction Packet
   begin_parse_dxl_packet(&info_rx_packet_, protocol_ver_idx_, p_param_buf, param_buf_cap);
   while(true)
   {
-    while(uartAvailable(uart_)>0){
-      c = uartRead(uart_);
-      //Serial.write(c);
-      err = parse_dxl_packet(&info_rx_packet_, c); //data[i]);
+
+    const int rxBytes = uart_read_bytes(uart_, data, 4, 0);
+    if (rxBytes == 0)
+      continue;
+    
+    //Serial1.println(rxBytes, HEX);
+    for(int i=0; i<rxBytes; i++){
+      err = parse_dxl_packet(&info_rx_packet_, data[i]);
       if (err == DXL_LIB_OK) {
         // the package is complete and correct
         if ((protocol_ver_idx_ == 2 && info_rx_packet_.inst_idx != DXL_INST_STATUS)
@@ -715,6 +709,38 @@ FastSlave::rxInstPacket(uint8_t* p_param_buf, uint16_t param_buf_cap)
     }
   }
 }
+
+/*
+    while(uart_->dev->status.rxfifo_cnt != 0 || (uart_->dev->mem_rx_status.wr_addr != uart_->dev->mem_rx_status.rd_addr)) {
+      c = uart_->dev->fifo.rw_byte;
+
+    //uint16_t uart_available_bytes = uartAvailable(uart_);
+    //if (uart_available_bytes == 0)
+    //  continue;
+    //uartReadBytes(uart_, c, uart_available_bytes, 0);
+    
+    //uart_read_bytes(UART_NUM_1, data, uart_available_bytes, 1);
+    //Serial.write(c);
+    for(int i=0; i<uart_available_bytes; i++){
+      err = parse_dxl_packet(&info_rx_packet_, c[i]); //data[i]);
+      if (err == DXL_LIB_OK) {
+        // the package is complete and correct
+        if ((protocol_ver_idx_ == 2 && info_rx_packet_.inst_idx != DXL_INST_STATUS)
+            || protocol_ver_idx_ == 1) {
+          if (info_rx_packet_.id == id_ || info_rx_packet_.id == DXL_BROADCAST_ID) {
+            // the package is for us
+            return true;
+          }//else {
+           // begin_parse_dxl_packet(&info_rx_packet_, protocol_ver_idx_, p_param_buf, param_buf_cap);
+          //}
+          return false;
+        }
+      } else if (err != DXL_LIB_PROCEEDING) {
+        return false;
+      }
+    }
+  }
+}*/
 
 
 

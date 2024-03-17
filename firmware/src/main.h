@@ -8,7 +8,7 @@
 
 
 #define DEBUG false
-#define DEBUG_SERIAL Serial
+#define DEBUG_SERIAL Serial1
 
 #define DXL_DIR_PIN 22
 #define DXL_U2_RX_PIN 21
@@ -78,9 +78,9 @@
 
 // default parameters for BMI088
 #define ACCEL_RANGE_DEFAULT Bmi088Accel::RANGE_24G
-#define ACCEL_ODR_DEFAULT Bmi088Accel::ODR_1600HZ_BW_280HZ
+#define ACCEL_ODR_DEFAULT Bmi088Accel::ODR_400HZ_BW_145HZ
 #define GYRO_RANGE_DEFAULT Bmi088Gyro::RANGE_2000DPS
-#define GYRO_ODR_DEFAULT Bmi088Gyro::ODR_2000HZ_BW_532HZ
+#define GYRO_ODR_DEFAULT Bmi088Gyro::ODR_400HZ_BW_47HZ
 
 // default parameters for complementary filter
 #define IMU_GAIN_ACCEL_DEFAULT 0.04
