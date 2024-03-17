@@ -61,6 +61,7 @@ CRGB leds[NUM_LEDS];
 uint8_t buttons[3];
 
 void setup() {
+  FastLED.setBrightness(32);
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
   leds[0] = CRGB::Red;
   leds[1] = CRGB::Blue;
@@ -71,7 +72,6 @@ void setup() {
   leds[1] = CRGB::Black;
   leds[2] = CRGB::Black;
   FastLED.show();
-  FastLED.setBrightness(128);
 
   //#ifdef DEBUG
     DEBUG_SERIAL.begin(115200, SERIAL_8N1, 3, 1);
