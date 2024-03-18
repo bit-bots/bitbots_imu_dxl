@@ -14,6 +14,7 @@ fp-info-cache# Netlist files (exported from Eeschema)
 *.ses
 electronics/imu_module/imu_module-backups/*
 *fp-info-cache
+electronics/imu_module/production/backups/*
 
 # Platform IO
 firmware/.pio/*
