@@ -60,22 +60,9 @@
         }
       ],
       "drc_exclusions": [
-        "courtyards_overlap|13099999|39099954|00000000-0000-0000-0000-000061a8fe10|00000000-0000-0000-0000-000061a90cdb",
-        "courtyards_overlap|16900001|35895413|00000000-0000-0000-0000-000061a8fdf4|00000000-0000-0000-0000-000061a90cdb",
-        "lib_footprint_mismatch|11754179|28750000|00000000-0000-0000-0000-000061a8fdd8|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|12762678|14401250|ce235cce-9ba7-40f0-82d5-5cd796bd0da6|00000000-0000-0000-0000-000000000000",
         "lib_footprint_mismatch|15000000|37500000|00000000-0000-0000-0000-000061a90cdb|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|15000000|4431250|1e3f253f-6b76-45b6-b7a9-3ec1c9377adb|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|21250000|22475000|00000000-0000-0000-0000-000061a91fa3|00000000-0000-0000-0000-000000000000",
         "lib_footprint_mismatch|23600000|37200000|00000000-0000-0000-0000-000061a8fdf4|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|25160000|3298250|00000000-0000-0000-0000-000061a90cd3|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|25697500|14080952|ed7607fd-d3e3-467f-8ac8-129e18c67b88|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|26018750|29460697|00000000-0000-0000-0000-000061a8fe90|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|28905655|24282144|00000000-0000-0000-0000-000061a913fa|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|28931250|21700000|e51924b4-8094-4a41-988a-7c6c5af113ac|00000000-0000-0000-0000-000000000000",
         "lib_footprint_mismatch|5000000|2500000|00000000-0000-0000-0000-000061a90ccb|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|6400000|37881250|00000000-0000-0000-0000-000061a8fe10|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|9938750|16750000|00000000-0000-0000-0000-000061a90d9e|00000000-0000-0000-0000-000000000000",
         "silk_edge_clearance|30000000|34340000|269f19c3-6824-45a8-be29-fa58d70cbb42|8e06ba1f-e3ba-4eb9-a10e-887dffd566d6",
         "silk_over_copper|13065136|36769595|ffd175d1-912a-4224-be1e-a8198680f46b|00000000-0000-0000-0000-000000000000"
       ],
@@ -257,7 +244,9 @@
     "equivalence_files": []
   },
   "erc": {
-    "erc_exclusions": [],
+    "erc_exclusions": [
+      "pin_to_pin|800100|1587500|c3896571-f1e7-49d8-8015-4586929c8174|066d8765-7c38-479e-8e7e-86dcefdf8501|/12422a89-3d0c-485c-9386-f77121fd68fd|/12422a89-3d0c-485c-9386-f77121fd68fd|/12422a89-3d0c-485c-9386-f77121fd68fd"
+    ],
     "meta": {
       "version": 0
     },
@@ -453,14 +442,14 @@
       "missing_unit": "warning",
       "multiple_net_names": "warning",
       "net_not_bus_member": "warning",
-      "no_connect_connected": "warning",
+      "no_connect_connected": "error",
       "no_connect_dangling": "warning",
       "pin_not_connected": "error",
       "pin_not_driven": "error",
-      "pin_to_pin": "warning",
+      "pin_to_pin": "error",
       "power_pin_not_driven": "error",
       "similar_labels": "warning",
-      "simulation_model_issue": "error",
+      "simulation_model_issue": "ignore",
       "unannotated": "error",
       "unit_value_mismatch": "error",
       "unresolved_variable": "error",
