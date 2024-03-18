@@ -7,9 +7,7 @@
 #include "uart_port_handler.h"
 #include "utilities.h"
 
-
 #define DEBUG false
-
 
 // Pin definitions
 #define DXL_DIR_PIN 22
@@ -33,12 +31,11 @@
 #define DXL_UART UART_NUM_0
 #define DEBUG_SERIAL Serial1
 
-
 // Dynamixel definitions
 #define DXL_PROTOCOL_VER_2_0 2.0
 #define DXL_MODEL_NUM 0xbaff
 #define DEFAULT_ID 241
-#define DEFAULT_BAUD 3 //1mbaud
+#define DEFAULT_BAUD 3 // 1mbaud
 
 #define ADDR_CONTROL_ITEM_BAUD 8
 
@@ -104,10 +101,10 @@
 // function definitions
 
 // define two tasks for reading the dxl bus and imu reading + filtering
-void task_dxl( void *pvParameters );
-void task_imu( void *pvParameters );
+void task_dxl(void *pvParameters);
+void task_imu(void *pvParameters);
 
-void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg);
+void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void *arg);
 
 void setAccelRange(uint8_t range);
 void setGyroRange(uint8_t range);

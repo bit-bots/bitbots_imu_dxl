@@ -1,7 +1,6 @@
 #include <main.h>
 
-
-TaskHandle_t th_dxl,th_worker;
+TaskHandle_t th_dxl, th_worker;
 
 Preferences dxl_prefs;
 Preferences imu_prefs;
@@ -10,7 +9,7 @@ Preferences imu_prefs;
 ESP32UartPortHandler uart(DXL_UART, DXL_TX_PIN, DXL_RX_PIN, DXL_DIR_PIN);
 
 DYNAMIXEL::Slave dxl(uart, DXL_MODEL_NUM, DXL_PROTOCOL_VER_2_0);
-void my_isr(void* arg);
+void my_isr(void *arg);
 
 // id and baud are stored using preferences library for persistance between resets of the chip
 uint8_t id;
@@ -24,9 +23,9 @@ Bmi088Gyro gyro_handle(SPI, GYRO_CS);
 volatile bool accel_drdy_flag, gyro_drdy_flag = false;
 
 // lists for storing measurements and filter outputs
-float gyro[3] = {0,0,0};
-float accel[3] = {0,0,0};
-float quat[4] = {0,0,0,0};
+float gyro[3] = {0, 0, 0};
+float accel[3] = {0, 0, 0};
+float quat[4] = {0, 0, 0, 0};
 
 // registers for parameters of IMU
 uint8_t gyro_range, accel_range;
@@ -46,7 +45,8 @@ unsigned long last_gyro_update = esp_timer_get_time();
 CRGB leds[NUM_LEDS];
 uint8_t buttons[3];
 
-void setup() {
+void setup()
+{
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
   leds[0] = CRGB::Red;
   leds[1] = CRGB::Blue;
@@ -58,10 +58,10 @@ void setup() {
   leds[2] = CRGB::Black;
   FastLED.show();
 
-  #ifdef DEBUG
-    DEBUG_SERIAL.begin(115200, SERIAL_8N1, 3, 1);
-  #endif
-  
+#ifdef DEBUG
+  DEBUG_SERIAL.begin(115200, SERIAL_8N1, 3, 1);
+#endif
+
   disableCore0WDT(); // required since we dont want FreeRTOS to slow down our reading if the Wachdogtimer (WTD) fires
   disableCore1WDT();
 
@@ -75,11 +75,11 @@ void loop()
 }
 
 /*---------------------- DXL ---------------------*/
-void task_dxl(void *pvParameters) 
+void task_dxl(void *pvParameters)
 {
-  (void) pvParameters;
+  (void)pvParameters;
   dxl_prefs.begin("dxl");
-  if(dxl_prefs.getUChar("init") != 42) // check if prefs are initialized
+  if (dxl_prefs.getUChar("init") != 42) // check if prefs are initialized
   {
     dxl_prefs.putUChar("id", DEFAULT_ID);
     dxl_prefs.putUChar("baud", DEFAULT_BAUD);
@@ -92,8 +92,8 @@ void task_dxl(void *pvParameters)
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VER_2_0);
   dxl.setFirmwareVersion(1);
   dxl.setID(id);
-  
-  //dxl.addControlItem(ADDR_CONTROL_ITEM_ID, id); // not allowed since already implemented in library as default item
+
+  // dxl.addControlItem(ADDR_CONTROL_ITEM_ID, id); // not allowed since already implemented in library as default item
   dxl.addControlItem(ADDR_CONTROL_ITEM_BAUD, baud);
 
   dxl.addControlItem(ADDR_CONTROL_ITEM_LED0_R, leds[0].r);
@@ -106,7 +106,7 @@ void task_dxl(void *pvParameters)
   dxl.addControlItem(ADDR_CONTROL_ITEM_LED2_G, leds[2].g);
   dxl.addControlItem(ADDR_CONTROL_ITEM_LED2_B, leds[2].b);
 
-  dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_X, gyro[0]); //TODO: 16 bit anstatt float
+  dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_X, gyro[0]); // TODO: 16 bit anstatt float
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_Y, gyro[1]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_Z, gyro[2]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_X, accel[0]);
@@ -116,13 +116,13 @@ void task_dxl(void *pvParameters)
   dxl.addControlItem(ADDR_CONTROL_ITEM_QUAT_Y, quat[1]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_QUAT_Z, quat[2]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_QUAT_W, quat[3]);
-  
+
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON0, buttons[0]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON1, buttons[1]);
-  
+
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_RANGE, gyro_range);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_RANGE, accel_range);
-  
+
   dxl.addControlItem(ADDR_CONTROL_ITEM_CALIBRATE_GYRO, calibrate_gyro);
   dxl.addControlItem(ADDR_CONTROL_ITEM_RESET_GYRO_CALIBRATION, reset_gyro_calibration);
 
@@ -139,56 +139,56 @@ void task_dxl(void *pvParameters)
 
   uart.setBaudRate(dxl_to_real_baud(baud));
   uart.begin();
-  
+
   for (;;)
   {
-    if(dxl.processPacket()){
-      if(dxl.getID() != id) // since we cant add the id as a control item, we need to check if it has been updated manually
+    if (dxl.processPacket())
+    {
+      if (dxl.getID() != id) // since we cant add the id as a control item, we need to check if it has been updated manually
       {
         id = dxl.getID();
         dxl_prefs.putUChar("id", id);
       }
     }
-    #ifdef DEBUG
-    else {
-        DEBUG_SERIAL.print("Last lib err code: ");
-        DEBUG_SERIAL.print(dxl.getLastLibErrCode());
-        DEBUG_SERIAL.print(", ");
-        DEBUG_SERIAL.print("Last status packet err code: ");
-        DEBUG_SERIAL.println(dxl.getLastStatusPacketError());
-        DEBUG_SERIAL.println();
+#ifdef DEBUG
+    else
+    {
+      DEBUG_SERIAL.print("Last lib err code: ");
+      DEBUG_SERIAL.print(dxl.getLastLibErrCode());
+      DEBUG_SERIAL.print(", ");
+      DEBUG_SERIAL.print("Last status packet err code: ");
+      DEBUG_SERIAL.println(dxl.getLastStatusPacketError());
+      DEBUG_SERIAL.println();
     }
-    #endif
+#endif
   }
 }
 
-
-void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
+void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void *arg)
 {
   (void)dxl_err_code, (void)arg;
   if (item_addr == ADDR_CONTROL_ITEM_BAUD)
   {
     dxl_prefs.putUChar("baud", baud);
-    ESP.restart(); // restart whole chip since restarting it is easier 
-  } 
-  else if(item_addr == ADDR_CONTROL_ITEM_GYRO_RANGE)
+    ESP.restart(); // restart whole chip since restarting it is easier
+  }
+  else if (item_addr == ADDR_CONTROL_ITEM_GYRO_RANGE)
   {
     setGyroRange(gyro_range);
     imu_prefs.putUChar("gyro_range", gyro_range);
-
   }
-  else if(item_addr == ADDR_CONTROL_ITEM_ACCEL_RANGE)
+  else if (item_addr == ADDR_CONTROL_ITEM_ACCEL_RANGE)
   {
     setAccelRange(accel_range);
     imu_prefs.putUChar("accel_range", accel_range);
   }
-  else if(item_addr == ADDR_CONTROL_ITEM_CALIBRATE_GYRO)
+  else if (item_addr == ADDR_CONTROL_ITEM_CALIBRATE_GYRO)
   {
-    if(calibrate_gyro)
+    if (calibrate_gyro)
     {
       // TODO
-      delay(1); //make sure processing of imu is done for 1 cycle
-      //int status = IMU.calibrateGyro();
+      delay(1); // make sure processing of imu is done for 1 cycle
+      // int status = IMU.calibrateGyro();
       /*if(status == 1)
       {
         leds[0] = CRGB::Green;
@@ -203,27 +203,27 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
       calibrate_gyro = false;
     }
   }
-  else if(item_addr == ADDR_CONTROL_ITEM_DO_ADAPTIVE_GAIN)
+  else if (item_addr == ADDR_CONTROL_ITEM_DO_ADAPTIVE_GAIN)
   {
     imu_prefs.putUChar("adaptive_gain", do_adaptive_gain);
     filter_.setDoAdaptiveGain(do_adaptive_gain);
   }
-  else if(item_addr == ADDR_CONTROL_ITEM_DO_BIAS_ESTIMATION)
+  else if (item_addr == ADDR_CONTROL_ITEM_DO_BIAS_ESTIMATION)
   {
     imu_prefs.putUChar("bias_estimation", do_bias_estimation);
     filter_.setDoBiasEstimation(do_bias_estimation);
   }
-  else if(item_addr == ADDR_CONTROL_ITEM_ACCEL_GAIN)
+  else if (item_addr == ADDR_CONTROL_ITEM_ACCEL_GAIN)
   {
     imu_prefs.putFloat("gain_accel", accel_gain);
     filter_.setGainAcc(accel_gain);
   }
-  else if(item_addr == ADDR_CONTROL_ITEM_BIAS_ALPHA)
+  else if (item_addr == ADDR_CONTROL_ITEM_BIAS_ALPHA)
   {
     imu_prefs.putFloat("bias_alpha", bias_alpha);
     filter_.setBiasAlpha(bias_alpha);
   }
-  else if(item_addr >= ADDR_CONTROL_ITEM_LED0_R && item_addr <= ADDR_CONTROL_ITEM_LED2_B)
+  else if (item_addr >= ADDR_CONTROL_ITEM_LED0_R && item_addr <= ADDR_CONTROL_ITEM_LED2_B)
   {
     FastLED.show();
   }
@@ -232,69 +232,69 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg)
 /*---------------------- IMU ---------------------*/
 void setAccelRange(uint8_t range)
 {
-    Bmi088Accel::Range accel_range;
-    switch(range)
-    {
-      case 0:
-        accel_range = Bmi088Accel::RANGE_3G;
-        break;
-      case 1:
-        accel_range = Bmi088Accel::RANGE_6G;
-        break;
-      case 2:
-        accel_range = Bmi088Accel::RANGE_12G;
-        break;
-      case 3:
-        accel_range = Bmi088Accel::RANGE_24G;
-        break;
-      default:
-        accel_range = ACCEL_RANGE_DEFAULT;
-    }
-    accel_handle.setRange(accel_range);
+  Bmi088Accel::Range accel_range;
+  switch (range)
+  {
+  case 0:
+    accel_range = Bmi088Accel::RANGE_3G;
+    break;
+  case 1:
+    accel_range = Bmi088Accel::RANGE_6G;
+    break;
+  case 2:
+    accel_range = Bmi088Accel::RANGE_12G;
+    break;
+  case 3:
+    accel_range = Bmi088Accel::RANGE_24G;
+    break;
+  default:
+    accel_range = ACCEL_RANGE_DEFAULT;
+  }
+  accel_handle.setRange(accel_range);
 }
 void setGyroRange(uint8_t range)
 {
-    Bmi088Gyro::Range gyro_range;
-    switch(range)
-    {
-      case 0:
-        gyro_range = Bmi088Gyro::RANGE_125DPS;
-        break;
-      case 1:
-        gyro_range = Bmi088Gyro::RANGE_250DPS;
-        break;
-      case 2:
-        gyro_range = Bmi088Gyro::RANGE_500DPS;
-        break;
-      case 3:
-        gyro_range = Bmi088Gyro::RANGE_1000DPS;
-        break;
-      case 4:
-        gyro_range = Bmi088Gyro::RANGE_2000DPS;
-        break;
-      default:
-        gyro_range = GYRO_RANGE_DEFAULT;
-    }
-    gyro_handle.setRange(gyro_range);
+  Bmi088Gyro::Range gyro_range;
+  switch (range)
+  {
+  case 0:
+    gyro_range = Bmi088Gyro::RANGE_125DPS;
+    break;
+  case 1:
+    gyro_range = Bmi088Gyro::RANGE_250DPS;
+    break;
+  case 2:
+    gyro_range = Bmi088Gyro::RANGE_500DPS;
+    break;
+  case 3:
+    gyro_range = Bmi088Gyro::RANGE_1000DPS;
+    break;
+  case 4:
+    gyro_range = Bmi088Gyro::RANGE_2000DPS;
+    break;
+  default:
+    gyro_range = GYRO_RANGE_DEFAULT;
+  }
+  gyro_handle.setRange(gyro_range);
 }
 
-void IRAM_ATTR accel_drdy_int() //IRAM_ATTR puts this function into ram, required since it is called as an interrupt
+void IRAM_ATTR accel_drdy_int() // IRAM_ATTR puts this function into ram, required since it is called as an interrupt
 {
   accel_drdy_flag = true;
 }
 
-void IRAM_ATTR gyro_drdy_int() //IRAM_ATTR puts this function into ram, required since it is called as an interrupt
+void IRAM_ATTR gyro_drdy_int() // IRAM_ATTR puts this function into ram, required since it is called as an interrupt
 {
   gyro_drdy_flag = true;
 }
 
-void task_imu(void *pvParameters) 
+void task_imu(void *pvParameters)
 {
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
 
-  (void) pvParameters;
+  (void)pvParameters;
   imu_prefs.begin("imu");
-  if(imu_prefs.getUChar("init_imu") != 42) // check if prefs are initialized
+  if (imu_prefs.getUChar("init_imu") != 42) // check if prefs are initialized
   {
     imu_prefs.putUChar("accel_range", ACCEL_RANGE_DEFAULT);
     imu_prefs.putUChar("gyro_range", GYRO_RANGE_DEFAULT);
@@ -310,70 +310,75 @@ void task_imu(void *pvParameters)
   accel_gain = imu_prefs.getFloat("gain_accel");
   do_bias_estimation = imu_prefs.getUChar("do_bias_estimation");
   bias_alpha = imu_prefs.getFloat("bias_alpha");
-  
+
   filter_.setDoAdaptiveGain(do_adaptive_gain);
   filter_.setGainAcc(accel_gain);
   filter_.setDoBiasEstimation(do_bias_estimation);
   filter_.setBiasAlpha(bias_alpha);
 
   // setup buttons
-  pinMode(BUTTON0_PIN,INPUT_PULLUP);
-  pinMode(BUTTON1_PIN,INPUT_PULLUP);
-  
+  pinMode(BUTTON0_PIN, INPUT_PULLUP);
+  pinMode(BUTTON1_PIN, INPUT_PULLUP);
+
   int accel_status = accel_handle.begin();
   int gyro_status = gyro_handle.begin();
 
-  #ifdef DEBUG
-    DEBUG_SERIAL.print("Accel status: ");
-    DEBUG_SERIAL.println(accel_status);
-    DEBUG_SERIAL.print("Gyro status: ");
-    DEBUG_SERIAL.println(gyro_status);
-  #endif
+#ifdef DEBUG
+  DEBUG_SERIAL.print("Accel status: ");
+  DEBUG_SERIAL.println(accel_status);
+  DEBUG_SERIAL.print("Gyro status: ");
+  DEBUG_SERIAL.println(gyro_status);
+#endif
 
-  if(accel_status == 1 && gyro_status == 1) {
+  if (accel_status == 1 && gyro_status == 1)
+  {
     leds[2] = CRGB::Green;
   }
-  else if (accel_status != 1) {
+  else if (accel_status != 1)
+  {
     leds[1] = CRGB::Red;
-  } else if (gyro_status != 1) {
+  }
+  else if (gyro_status != 1)
+  {
     leds[2] = CRGB::Red;
   }
   FastLED.show();
 
   gyro_range = imu_prefs.getUChar("gyro_range");
-  //setGyroRange(gyro_range);
+  // setGyroRange(gyro_range);
   gyro_handle.setRange(GYRO_RANGE_DEFAULT);
   accel_range = imu_prefs.getUChar("accel_range");
-  //setAccelRange(accel_range);
+  // setAccelRange(accel_range);
   accel_handle.setRange(ACCEL_RANGE_DEFAULT);
 
   accel_handle.setOdr(ACCEL_ODR_DEFAULT);
   gyro_handle.setOdr(GYRO_ODR_DEFAULT);
 
   // initialize interrups for imu gyro and accel
-  accel_handle.pinModeInt1(Bmi088Accel::PUSH_PULL,Bmi088Accel::ACTIVE_HIGH);
+  accel_handle.pinModeInt1(Bmi088Accel::PUSH_PULL, Bmi088Accel::ACTIVE_HIGH);
   accel_handle.mapDrdyInt1(true);
-  
-  gyro_handle.pinModeInt3(Bmi088Gyro::PUSH_PULL,Bmi088Gyro::ACTIVE_HIGH);
+
+  gyro_handle.pinModeInt3(Bmi088Gyro::PUSH_PULL, Bmi088Gyro::ACTIVE_HIGH);
   gyro_handle.mapDrdyInt3(true);
 
-  pinMode(INT_ACCEL,INPUT);
-  attachInterrupt(INT_ACCEL,accel_drdy_int,RISING);
-  pinMode(INT_GYRO,INPUT);
-  attachInterrupt(INT_GYRO,gyro_drdy_int,RISING);  
+  pinMode(INT_ACCEL, INPUT);
+  attachInterrupt(INT_ACCEL, accel_drdy_int, RISING);
+  pinMode(INT_GYRO, INPUT);
+  attachInterrupt(INT_GYRO, gyro_drdy_int, RISING);
 
   for (;;)
   {
     buttons[0] = !digitalRead(BUTTON0_PIN);
     buttons[1] = !digitalRead(BUTTON1_PIN);
-    if (accel_drdy_flag){
+    if (accel_drdy_flag)
+    {
       accel_drdy_flag = false;
       accel_handle.readSensor();
       float tmp_accel[3];
       tmp_accel[0] = accel_handle.getAccelX_mss();
       tmp_accel[1] = accel_handle.getAccelY_mss();
       tmp_accel[2] = accel_handle.getAccelZ_mss();
-      if(isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
+      if (isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
         return;
       // copy data to global variables, no loops because compiler might not optimize them out
       accel[0] = tmp_accel[0];
@@ -382,66 +387,65 @@ void task_imu(void *pvParameters)
 
       filter_.update_acc(accel[0], accel[1], accel[2]);
 
-      double q0,q1,q2,q3;
-      filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
+      double q0, q1, q2, q3;
+      filter_.getOrientation(q0, q1, q2, q3); // hamilton to ros quaternion
       quat[0] = q1;
       quat[1] = q2;
       quat[2] = q3;
       quat[3] = q0;
     }
 
-    if (gyro_drdy_flag){
+    if (gyro_drdy_flag)
+    {
       gyro_drdy_flag = false;
-  
+
       gyro_handle.readSensor();
       float tmp_gyro[3];
       tmp_gyro[0] = gyro_handle.getGyroX_rads();
       tmp_gyro[1] = gyro_handle.getGyroY_rads();
       tmp_gyro[2] = gyro_handle.getGyroZ_rads();
 
-      if(isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
-        return;      
+      if (isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
+        return;
       // copy data to global variables, no loops because compiler might not optimize them out
       gyro[0] = tmp_gyro[0];
       gyro[1] = tmp_gyro[1];
       gyro[2] = tmp_gyro[2];
       unsigned long current_update_time = esp_timer_get_time();
-      float dt = (float) (last_gyro_update - current_update_time) / 1e6;
+      float dt = (float)(last_gyro_update - current_update_time) / 1e6;
       last_gyro_update = current_update_time;
       filter_.update_gyro(gyro[0], gyro[1], gyro[2], dt);
-      double q0,q1,q2,q3;
-      filter_.getOrientation(q0, q1, q2, q3); //hamilton to ros quaternion
+      double q0, q1, q2, q3;
+      filter_.getOrientation(q0, q1, q2, q3); // hamilton to ros quaternion
       quat[0] = q1;
       quat[1] = q2;
       quat[2] = q3;
       quat[3] = q0;
-      // #if DEBUG
-      //   DEBUG_SERIAL.println("gyro");
-      // #endif //DEBUG
     }
-    if (true) {
-      #if DEBUG
-        DEBUG_SERIAL.print(gyro[0]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(gyro[1]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(gyro[2]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(accel[0]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(accel[1]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(accel[2]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(quat[0]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(quat[1]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(quat[2]);
-        DEBUG_SERIAL.print("\t");
-        DEBUG_SERIAL.print(quat[3]);
-        DEBUG_SERIAL.print("\n");
-      #endif
+    if (true)
+    {
+#if DEBUG
+      DEBUG_SERIAL.print(gyro[0]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(gyro[1]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(gyro[2]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(accel[0]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(accel[1]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(accel[2]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(quat[0]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(quat[1]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(quat[2]);
+      DEBUG_SERIAL.print("\t");
+      DEBUG_SERIAL.print(quat[3]);
+      DEBUG_SERIAL.print("\n");
+#endif
     }
   }
 }
