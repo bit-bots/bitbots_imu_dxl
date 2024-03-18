@@ -5,15 +5,36 @@
 #include "BMI088.h"
 #include "complementary_filter.h"
 #include "uart_port_handler.h"
+#include "utilities.h"
 
 
 #define DEBUG false
+
+
+// Pin definitions
+#define DXL_DIR_PIN 22
+#define DXL_RX_PIN 21
+#define DXL_TX_PIN 23
+
+#define ACCEL_CS 26
+#define GYRO_CS 18
+
+#define SPI_MOSI 5
+#define SPI_MISO 17
+#define SPI_SCK 19
+#define INT_ACCEL 25
+#define INT_GYRO 16
+
+#define LED_PIN 4
+#define BUTTON0_PIN 2
+#define BUTTON1_PIN 15
+
+// UART definitions
+#define DXL_UART UART_NUM_0
 #define DEBUG_SERIAL Serial1
 
-#define DXL_DIR_PIN 22
-#define DXL_U2_RX_PIN 21
-#define DXL_U2_TX_PIN 23
 
+// Dynamixel definitions
 #define DXL_PROTOCOL_VER_2_0 2.0
 #define DXL_MODEL_NUM 0xbaff
 #define DEFAULT_ID 241
@@ -66,16 +87,6 @@
 #define ADDR_CONTROL_ITEM_ACCEL_SCALE_Y 138
 #define ADDR_CONTROL_ITEM_ACCEL_SCALE_Z 142
 
-#define ACCEL_CS 26
-#define GYRO_CS 18
-
-#define SPI_MOSI 5 // Confirmed
-#define SPI_MISO 17 // Confirmed
-#define SPI_SCK 19 // Confirmed
-
-#define INT_ACCEL 25 // Confirmed
-#define INT_GYRO 16 // Confirmed
-
 // default parameters for BMI088
 #define ACCEL_RANGE_DEFAULT Bmi088Accel::RANGE_24G
 #define ACCEL_ODR_DEFAULT Bmi088Accel::ODR_400HZ_BW_145HZ
@@ -88,12 +99,15 @@
 #define IMU_DO_BIAS_ESTIMATION_DEFAULT false
 #define IMU_BIAS_ALPHA_DEFAULT 0.01
 
-#define LED_PIN 4
 #define NUM_LEDS 3
 
-#define BUTTON0_PIN 2
-#define BUTTON1_PIN 15
+// function definitions
 
+// define two tasks for reading the dxl bus and imu reading + filtering
+void task_dxl( void *pvParameters );
+void task_imu( void *pvParameters );
+
+void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void* arg);
 
 void setAccelRange(uint8_t range);
 void setGyroRange(uint8_t range);
