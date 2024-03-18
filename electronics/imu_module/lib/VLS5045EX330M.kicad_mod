@@ -1,31 +1,202 @@
-(module "VLS5045EX330M" (layer F.Cu)
-  (descr "VLS5045")
-  (tags "Inductor")
-  (attr smd)
-  (fp_text reference L** (at 0.000 -0) (layer F.SilkS)
-    (effects (font (size 1.27 1.27) (thickness 0.254)))
-  )
-  (fp_text user %R (at 0.000 -0) (layer F.Fab)
-    (effects (font (size 1.27 1.27) (thickness 0.254)))
-  )
-  (fp_text value "VLS5045EX330M" (at 0.000 -0) (layer F.SilkS) hide
-    (effects (font (size 1.27 1.27) (thickness 0.254)))
-  )
-  (fp_line (start -2.5 -2.5) (end 2.5 -2.5) (layer F.Fab) (width 0.2))
-  (fp_line (start 2.5 -2.5) (end 2.5 2.5) (layer F.Fab) (width 0.2))
-  (fp_line (start 2.5 2.5) (end -2.5 2.5) (layer F.Fab) (width 0.2))
-  (fp_line (start -2.5 2.5) (end -2.5 -2.5) (layer F.Fab) (width 0.2))
-  (fp_line (start -3.55 -3.5) (end 3.55 -3.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start 3.55 -3.5) (end 3.55 3.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start 3.55 3.5) (end -3.55 3.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start -3.55 3.5) (end -3.55 -3.5) (layer F.CrtYd) (width 0.1))
-  (fp_line (start -2.5 -2.5) (end 2.5 -2.5) (layer F.SilkS) (width 0.1))
-  (fp_line (start -2.5 2.5) (end 2.54 2.5) (layer F.SilkS) (width 0.1))
-  (pad 1 smd rect (at -1.800 -0 0) (size 1.500 4.000) (layers F.Cu F.Paste F.Mask))
-  (pad 2 smd rect (at 1.800 -0 0) (size 1.500 4.000) (layers F.Cu F.Paste F.Mask))
-  (model VLS5045EX-220M.stp
-    (at (xyz 0 0 0.088976377577294))
-    (scale (xyz 1 1 1))
-    (rotate (xyz -90 0 0))
-  )
+(footprint "VLS5045EX330M"
+	(version 20240108)
+	(generator "pcbnew")
+	(generator_version "8.0")
+	(layer "F.Cu")
+	(descr "VLS5045")
+	(tags "Inductor")
+	(property "Reference" "L**"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(uuid "8533d5c9-2302-41f8-86b6-c69a130ed644")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(property "Value" "VLS5045EX330M"
+		(at 0 0 0)
+		(layer "F.SilkS")
+		(hide yes)
+		(uuid "54ce3f91-df1d-4e5e-8fe8-9d7c56c4ee3f")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(property "Footprint" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "325758b4-7afb-4d9b-8e70-c375c2491c55")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Datasheet" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "1ed23604-9a95-46db-a0ec-1eb4ee8646ef")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" ""
+		(at 0 0 0)
+		(unlocked yes)
+		(layer "F.Fab")
+		(hide yes)
+		(uuid "5c25f20b-f5f5-45af-9435-a1ffe6dbc227")
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(attr smd)
+	(fp_line
+		(start -2.5 -2.5)
+		(end 2.5 -2.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "ad4ce5d0-4b55-4a13-aac9-c2ccbadfb235")
+	)
+	(fp_line
+		(start -2.5 2.5)
+		(end 2.54 2.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.SilkS")
+		(uuid "8d827368-7f29-433f-8736-e2df15c75334")
+	)
+	(fp_line
+		(start -3.55 -3.5)
+		(end 3.55 -3.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "014cf5eb-475d-4a74-ae84-f5c513323e5f")
+	)
+	(fp_line
+		(start -3.55 3.5)
+		(end -3.55 -3.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "410118e4-ee46-4d14-aff4-19770b8fc713")
+	)
+	(fp_line
+		(start 3.55 -3.5)
+		(end 3.55 3.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "218a4feb-ee2e-4625-b857-760a7cfbf9eb")
+	)
+	(fp_line
+		(start 3.55 3.5)
+		(end -3.55 3.5)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "F.CrtYd")
+		(uuid "8f207da1-6a1d-4749-b873-62010527240a")
+	)
+	(fp_line
+		(start -2.5 -2.5)
+		(end 2.5 -2.5)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "ec36ff2b-7e5f-40bc-beb0-8af5a8fc8341")
+	)
+	(fp_line
+		(start -2.5 2.5)
+		(end -2.5 -2.5)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "ed39a9f6-7026-4fc9-b2dc-476d8e542622")
+	)
+	(fp_line
+		(start 2.5 -2.5)
+		(end 2.5 2.5)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "34e16ce7-1084-4395-b0b7-1d468a480fba")
+	)
+	(fp_line
+		(start 2.5 2.5)
+		(end -2.5 2.5)
+		(stroke
+			(width 0.2)
+			(type solid)
+		)
+		(layer "F.Fab")
+		(uuid "1236f9af-60a3-472f-8509-d0dbb1c2b6c1")
+	)
+	(fp_text user "${REFERENCE}"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(uuid "8cc29aa8-ea64-46cc-a8c8-36ed40ab681b")
+		(effects
+			(font
+				(size 1.27 1.27)
+				(thickness 0.254)
+			)
+		)
+	)
+	(pad "1" smd rect
+		(at -1.8 0)
+		(size 1.5 4)
+		(layers "F.Cu" "F.Paste" "F.Mask")
+		(uuid "ce88c13b-fc1f-4405-826f-a6869d81af1b")
+	)
+	(pad "2" smd rect
+		(at 1.8 0)
+		(size 1.5 4)
+		(layers "F.Cu" "F.Paste" "F.Mask")
+		(uuid "9a729b53-164b-4e55-b847-3e49a1322b8e")
+	)
+	(model "${KIPRJMOD}/lib/VLS5045EX-220M.step"
+		(offset
+			(xyz 0 0 2.26)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz -90 0 0)
+		)
+	)
 )
