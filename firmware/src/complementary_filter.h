@@ -70,12 +70,15 @@ class ComplementaryFilter
     // fixed frame.
     void getOrientation(double& q0, double& q1, double& q2, double& q3) const;
 
-    // Update from accelerometer and gyroscope data.
+    // Update from accelerometer data.
     // [ax, ay, az]: Normalized gravity vector.
+    // dt: time delta, in seconds.
+    void update_acc(double ax, double ay, double az);
+    
+    // Update from gyroscope data.
     // [wx, wy, wz]: Angular veloctiy, in rad / s.
     // dt: time delta, in seconds.
-    void update(double ax, double ay, double az, 
-                double wx, double wy, double wz,
+    void update_gyro(double wx, double wy, double wz,
                 double dt);
 
     // Update from accelerometer, gyroscope, and magnetometer data.
@@ -115,6 +118,8 @@ class ComplementaryFilter
     // The orientation as a Hamilton quaternion (q0 is the scalar). Represents
     // the orientation of the fixed frame wrt the body frame.
     double q0_, q1_, q2_, q3_; 
+    // The predicted change in orientation of the a Hamilton quaternions.
+    double q0_pred_, q1_pred_, q2_pred_, q3_pred_;
 
     // Bias in angular velocities;
     double wx_prev_, wy_prev_, wz_prev_;
