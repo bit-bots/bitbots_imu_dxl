@@ -116,7 +116,7 @@ void task_dxl(void *pvParameters)
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON1, buttons[1]);
 
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_ODR, gyro_odr);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_ODR, accel_odr); 
+  dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_ODR, accel_odr);
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_RANGE, gyro_range);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_RANGE, accel_range);
 
@@ -169,7 +169,7 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void *arg)
   {
     setGyroOdr(gyro_handle, gyro_odr);
     imu_prefs.putUChar("gyro_odr", gyro_odr);
-  } 
+  }
   else if (item_addr == ADDR_CONTROL_ITEM_ACCEL_ODR)
   {
     setAccelOdr(accel_handle, accel_odr);
@@ -212,7 +212,6 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void *arg)
 }
 
 /*---------------------- IMU ---------------------*/
-
 
 void IRAM_ATTR accel_drdy_int() // IRAM_ATTR puts this function into ram, required since it is called as an interrupt
 {
@@ -309,30 +308,34 @@ void task_imu(void *pvParameters)
   {
     buttons[0] = !digitalRead(BUTTON0_PIN);
     buttons[1] = !digitalRead(BUTTON1_PIN);
+
+    // synchronized reading requires setting up the interrupt of one sensor triggering the other
+    // if required this can be implemented in the future as in the example in the BMI088 library
     bool synchronized_read = false;
-    if (synchronized_read) {
-      if(accel_drdy_flag && gyro_drdy_flag) {
+    if (synchronized_read)
+    {
+      if (accel_drdy_flag && gyro_drdy_flag)
+      {
         int64_t current_update_time = esp_timer_get_time();
         float dt = (float)(last_gyro_update - current_update_time) / 1e6;
         last_gyro_update = current_update_time;
-        
+
         gyro_handle.readSensor();
         gyro_drdy_flag = false;
-        
+
         accel_handle.readSensor();
         accel_drdy_flag = false;
-        
+
         float tmp_gyro[3];
         tmp_gyro[0] = gyro_handle.getGyroX_rads();
         tmp_gyro[1] = gyro_handle.getGyroY_rads();
         tmp_gyro[2] = gyro_handle.getGyroZ_rads();
 
-
         float tmp_accel[3];
         tmp_accel[0] = accel_handle.getAccelX_mss();
         tmp_accel[1] = accel_handle.getAccelY_mss();
         tmp_accel[2] = accel_handle.getAccelZ_mss();
-        
+
         filter_.update(tmp_accel[0], tmp_accel[1], tmp_accel[2], tmp_gyro[0], tmp_gyro[1], tmp_gyro[2], dt);
 
         if (isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
@@ -341,7 +344,7 @@ void task_imu(void *pvParameters)
         gyro[0] = tmp_gyro[0];
         gyro[1] = tmp_gyro[1];
         gyro[2] = tmp_gyro[2];
-        
+
         if (isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
           continue;
         accel[0] = tmp_accel[0];
@@ -356,7 +359,8 @@ void task_imu(void *pvParameters)
         quat[3] = q0;
       }
     }
-    else { // not synchronized
+    else
+    { // not synchronized
       if (accel_drdy_flag)
       {
         accel_drdy_flag = false;
