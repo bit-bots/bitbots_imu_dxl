@@ -340,7 +340,6 @@ void task_imu(void *pvParameters)
 
         if (isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
           return;
-        // copy data to global variables, no loops because compiler might not optimize them out
         gyro[0] = tmp_gyro[0];
         gyro[1] = tmp_gyro[1];
         gyro[2] = tmp_gyro[2];
