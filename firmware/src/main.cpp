@@ -9,7 +9,6 @@ Preferences imu_prefs;
 ESP32UartPortHandler uart(DXL_UART, DXL_TX_PIN, DXL_RX_PIN, DXL_DIR_PIN);
 
 DYNAMIXEL::Slave dxl(uart, DXL_MODEL_NUM, DXL_PROTOCOL_VER_2_0);
-void my_isr(void *arg);
 
 // id and baud are stored using preferences library for persistance between resets of the chip
 uint8_t id;
@@ -26,10 +25,6 @@ volatile bool accel_drdy_flag, gyro_drdy_flag = false;
 float gyro[3] = {0, 0, 0};
 float accel[3] = {0, 0, 0};
 float quat[4] = {0, 0, 0, 0};
-
-//int gyro16[3] = {0, 0, 0};
-//int accel16[3] = {0, 0, 0};
-//int quat16[4] = {0, 0, 0, 0};
 
 // registers for parameters of IMU
 uint8_t gyro_odr, accel_odr, gyro_range, accel_range;
@@ -58,9 +53,9 @@ void setup()
   leds[2] = CRGB::Black;
   FastLED.show();
 
-//#ifdef DEBUG
+#ifdef DEBUG
   DEBUG_SERIAL.begin(115200, SERIAL_8N1, 3, 1);
-//#endif
+#endif
 
   disableCore0WDT(); // required since we dont want FreeRTOS to slow down our reading if the Wachdogtimer (WTD) fires
   disableCore1WDT();
@@ -119,19 +114,6 @@ void task_dxl(void *pvParameters)
 
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON0, buttons[0]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON1, buttons[1]);
-
-  /*
-  dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO16_X, gyro16[0]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO16_Y, gyro16[1]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO16_Z, gyro16[2]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL16_X, accel16[0]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL16_Y, accel16[1]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL16_Z, accel16[2]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_QUAT16_X, quat16[0]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_QUAT16_Y, quat16[1]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_QUAT16_Z, quat16[2]);
-  dxl.addControlItem(ADDR_CONTROL_ITEM_QUAT16_W, quat16[3]);
-  */
 
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_ODR, gyro_odr);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_ODR, accel_odr); 
@@ -249,7 +231,7 @@ void task_imu(void *pvParameters)
   (void)pvParameters;
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON2, buttons[2]);
   imu_prefs.begin("imu");
-  if (imu_prefs.getUChar("init_imu") != 43) // check if prefs are initialized
+  if (imu_prefs.getUChar("init_imu") != 42) // check if prefs are initialized
   {
     imu_prefs.putUChar("accel_odr", ACCEL_ODR_DEFAULT);
     imu_prefs.putUChar("gyro_odr", GYRO_ODR_DEFAULT);
@@ -327,141 +309,106 @@ void task_imu(void *pvParameters)
   {
     buttons[0] = !digitalRead(BUTTON0_PIN);
     buttons[1] = !digitalRead(BUTTON1_PIN);
-    if(accel_drdy_flag && gyro_drdy_flag) {
-      int64_t current_update_time = esp_timer_get_time();
-      float dt = (float)(last_gyro_update - current_update_time) / 1e6;
-      last_gyro_update = current_update_time;
-      
-      gyro_handle.readSensor();
-      gyro_drdy_flag = false;
-      
-      accel_handle.readSensor();
-      accel_drdy_flag = false;
-      
-      float tmp_gyro[3];
-      tmp_gyro[0] = gyro_handle.getGyroX_rads();
-      tmp_gyro[1] = gyro_handle.getGyroY_rads();
-      tmp_gyro[2] = gyro_handle.getGyroZ_rads();
+    bool synchronized_read = false;
+    if (synchronized_read) {
+      if(accel_drdy_flag && gyro_drdy_flag) {
+        int64_t current_update_time = esp_timer_get_time();
+        float dt = (float)(last_gyro_update - current_update_time) / 1e6;
+        last_gyro_update = current_update_time;
+        
+        gyro_handle.readSensor();
+        gyro_drdy_flag = false;
+        
+        accel_handle.readSensor();
+        accel_drdy_flag = false;
+        
+        float tmp_gyro[3];
+        tmp_gyro[0] = gyro_handle.getGyroX_rads();
+        tmp_gyro[1] = gyro_handle.getGyroY_rads();
+        tmp_gyro[2] = gyro_handle.getGyroZ_rads();
 
 
-      float tmp_accel[3];
-      tmp_accel[0] = accel_handle.getAccelX_mss();
-      tmp_accel[1] = accel_handle.getAccelY_mss();
-      tmp_accel[2] = accel_handle.getAccelZ_mss();
-      
-      filter_.update(tmp_accel[0], tmp_accel[1], tmp_accel[2], tmp_gyro[0], tmp_gyro[1], tmp_gyro[2], dt);
+        float tmp_accel[3];
+        tmp_accel[0] = accel_handle.getAccelX_mss();
+        tmp_accel[1] = accel_handle.getAccelY_mss();
+        tmp_accel[2] = accel_handle.getAccelZ_mss();
+        
+        filter_.update(tmp_accel[0], tmp_accel[1], tmp_accel[2], tmp_gyro[0], tmp_gyro[1], tmp_gyro[2], dt);
 
-      if (isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
-        return;
-      // copy data to global variables, no loops because compiler might not optimize them out
-      gyro[0] = tmp_gyro[0];
-      gyro[1] = tmp_gyro[1];
-      gyro[2] = tmp_gyro[2];
-      
-      if (isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
-        continue;
-      accel[0] = tmp_accel[0];
-      accel[1] = tmp_accel[1];
-      accel[2] = tmp_accel[2];
+        if (isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
+          return;
+        // copy data to global variables, no loops because compiler might not optimize them out
+        gyro[0] = tmp_gyro[0];
+        gyro[1] = tmp_gyro[1];
+        gyro[2] = tmp_gyro[2];
+        
+        if (isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
+          continue;
+        accel[0] = tmp_accel[0];
+        accel[1] = tmp_accel[1];
+        accel[2] = tmp_accel[2];
 
-      double q0, q1, q2, q3;
-      filter_.getOrientation(q0, q1, q2, q3);
-      quat[0] = q1;
-      quat[1] = q2;
-      quat[2] = q3;
-      quat[3] = q0;
+        double q0, q1, q2, q3;
+        filter_.getOrientation(q0, q1, q2, q3);
+        quat[0] = q1;
+        quat[1] = q2;
+        quat[2] = q3;
+        quat[3] = q0;
+      }
     }
-    /*
-    if (accel_drdy_flag)
-    {
-      accel_drdy_flag = false;
-      accel_handle.readSensor();
-      float tmp_accel[3];
-      tmp_accel[0] = accel_handle.getAccelX_mss();
-      tmp_accel[1] = accel_handle.getAccelY_mss();
-      tmp_accel[2] = accel_handle.getAccelZ_mss();
-      if (isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
-        return;
-      // copy data to global variables, no loops because compiler might not optimize them out
-      accel[0] = tmp_accel[0];
-      accel[1] = tmp_accel[1];
-      accel[2] = tmp_accel[2];
-      //accel16[0] = (int16_t)(accel[0] * 1365.29166667); // 2^15-1 / 24G
-      //accel16[1] = (int16_t)(accel[1] * 1365.29166667);
-      //accel16[2] = (int16_t)(accel[2] * 1365.29166667);
+    else { // not synchronized
+      if (accel_drdy_flag)
+      {
+        accel_drdy_flag = false;
+        accel_handle.readSensor();
+        float tmp_accel[3];
+        tmp_accel[0] = accel_handle.getAccelX_mss();
+        tmp_accel[1] = accel_handle.getAccelY_mss();
+        tmp_accel[2] = accel_handle.getAccelZ_mss();
+        if (isnan(tmp_accel[0]) || isnan(tmp_accel[1]) || isnan(tmp_accel[2]))
+          return;
 
-      filter_.update_acc(accel[0], accel[1], accel[2]);
+        accel[0] = tmp_accel[0];
+        accel[1] = tmp_accel[1];
+        accel[2] = tmp_accel[2];
 
-      double q0, q1, q2, q3;
-      filter_.getOrientation(q0, q1, q2, q3); // hamilton to ros quaternion
-      quat[0] = q1;
-      quat[1] = q2;
-      quat[2] = q3;
-      quat[3] = q0;
-      //quat16[0] = (int16_t)(quat[0] * 32767);
-      //quat16[1] = (int16_t)(quat[1] * 32767);
-      //quat16[2] = (int16_t)(quat[2] * 32767);
-      //quat16[3] = (int16_t)(quat[3] * 32767);
+        filter_.update_acc(accel[0], accel[1], accel[2]);
+
+        double q0, q1, q2, q3;
+        filter_.getOrientation(q0, q1, q2, q3); // hamilton to ros quaternion
+        quat[0] = q1;
+        quat[1] = q2;
+        quat[2] = q3;
+        quat[3] = q0;
+      }
+      if (gyro_drdy_flag)
+      {
+        gyro_drdy_flag = false;
+
+        gyro_handle.readSensor();
+        float tmp_gyro[3];
+        tmp_gyro[0] = gyro_handle.getGyroX_rads();
+        tmp_gyro[1] = gyro_handle.getGyroY_rads();
+        tmp_gyro[2] = gyro_handle.getGyroZ_rads();
+
+        if (isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
+          return;
+
+        gyro[0] = tmp_gyro[0];
+        gyro[1] = tmp_gyro[1];
+        gyro[2] = tmp_gyro[2];
+
+        int64_t current_update_time = esp_timer_get_time();
+        float dt = (float)(last_gyro_update - current_update_time) / 1e6;
+        last_gyro_update = current_update_time;
+        filter_.update_gyro(gyro[0], gyro[1], gyro[2], dt);
+        double q0, q1, q2, q3;
+        filter_.getOrientation(q0, q1, q2, q3); // hamilton to ros quaternion
+        quat[0] = q1;
+        quat[1] = q2;
+        quat[2] = q3;
+        quat[3] = q0;
+      }
     }
-
-    if (gyro_drdy_flag)
-    {
-      gyro_drdy_flag = false;
-
-      gyro_handle.readSensor();
-      float tmp_gyro[3];
-      tmp_gyro[0] = gyro_handle.getGyroX_rads();
-      tmp_gyro[1] = gyro_handle.getGyroY_rads();
-      tmp_gyro[2] = gyro_handle.getGyroZ_rads();
-
-      if (isnan(tmp_gyro[0]) || isnan(tmp_gyro[1]) || isnan(tmp_gyro[2]))
-        return;
-      // copy data to global variables, no loops because compiler might not optimize them out
-      gyro[0] = tmp_gyro[0];
-      gyro[1] = tmp_gyro[1];
-      gyro[2] = tmp_gyro[2];
-      //gyro16[0] = (int16_t)(gyro[0] * 16.3835 * 57.2958); // (2^15-1) / 2000d deg/s * 180deg/pi
-      //gyro16[1] = (int16_t)(gyro[1] * 16.3835 * 57.2958); 
-      //gyro16[2] = (int16_t)(gyro[2] * 16.3835 * 57.2958);
-
-      int64_t current_update_time = esp_timer_get_time();
-      float dt = (float)(last_gyro_update - current_update_time) / 1e6;
-      last_gyro_update = current_update_time;
-      filter_.update_gyro(gyro[0], gyro[1], gyro[2], dt);
-      double q0, q1, q2, q3;
-      filter_.getOrientation(q0, q1, q2, q3); // hamilton to ros quaternion
-      quat[0] = q1;
-      quat[1] = q2;
-      quat[2] = q3;
-      quat[3] = q0;
-      //quat16[0] = (int16_t)(quat[0] * 32767);
-      //quat16[1] = (int16_t)(quat[1] * 32767);
-      //quat16[2] = (int16_t)(quat[2] * 32767);
-      //quat16[3] = (int16_t)(quat[3] * 32767);
-    }
-    */
-#if DEBUG
-      DEBUG_SERIAL.print(gyro[0]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(gyro[1]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(gyro[2]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(accel[0]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(accel[1]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(accel[2]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(quat[0]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(quat[1]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(quat[2]);
-      DEBUG_SERIAL.print("\t");
-      DEBUG_SERIAL.print(quat[3]);
-      DEBUG_SERIAL.print("\n");
-#endif
-    
   }
 }

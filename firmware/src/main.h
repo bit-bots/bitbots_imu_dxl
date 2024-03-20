@@ -64,19 +64,6 @@
 #define ADDR_CONTROL_ITEM_BUTTON1 77
 #define ADDR_CONTROL_ITEM_BUTTON2 78
 
-/*
-#define ADDR_CONTROL_ITEM_GYRO16_X 80
-#define ADDR_CONTROL_ITEM_GYRO16_Y 82
-#define ADDR_CONTROL_ITEM_GYRO16_Z 84
-#define ADDR_CONTROL_ITEM_ACCEL16_X 86
-#define ADDR_CONTROL_ITEM_ACCEL16_Y 88
-#define ADDR_CONTROL_ITEM_ACCEL16_Z 90
-#define ADDR_CONTROL_ITEM_QUAT16_X 92
-#define ADDR_CONTROL_ITEM_QUAT16_Y 94
-#define ADDR_CONTROL_ITEM_QUAT16_Z 96
-#define ADDR_CONTROL_ITEM_QUAT16_W 98
-*/
-
 #define ADDR_CONTROL_ITEM_GYRO_ODR 100
 #define ADDR_CONTROL_ITEM_ACCEL_ODR 101
 
@@ -90,22 +77,20 @@
 
 
 // default parameters for BMI088
-#define ACCEL_RANGE_DEFAULT Bmi088Accel::RANGE_6G
-#define ACCEL_ODR_DEFAULT Bmi088Accel::ODR_400HZ_BW_145HZ
-#define GYRO_RANGE_DEFAULT Bmi088Gyro::RANGE_250DPS
-#define GYRO_ODR_DEFAULT Bmi088Gyro::ODR_400HZ_BW_47HZ
+#define ACCEL_RANGE_DEFAULT  1 // Bmi088Accel::RANGE_6G
+#define ACCEL_ODR_DEFAULT   15 // Bmi088Accel::ODR_400HZ_BW_40HZ
+#define GYRO_RANGE_DEFAULT   3 // Bmi088Gyro::RANGE_1000DPS
+#define GYRO_ODR_DEFAULT     5 // Bmi088Gyro::ODR_1000HZ_BW_116HZ
 
 // default parameters for complementary filter
 #define IMU_GAIN_ACCEL_DEFAULT 0.04
 #define IMU_DO_ADAPTIVE_GAIN_DEFAULT false
-#define IMU_DO_BIAS_ESTIMATION_DEFAULT false // NOT WORKING ATM
+#define IMU_DO_BIAS_ESTIMATION_DEFAULT false // Not working as we are not reading synchroneously
 #define IMU_BIAS_ALPHA_DEFAULT 0.01
 
 #define NUM_LEDS 3
 
 // function definitions
-
-// define two tasks for reading the dxl bus and imu reading + filtering
 void task_dxl(void *pvParameters);
 void task_imu(void *pvParameters);
 

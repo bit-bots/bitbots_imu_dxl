@@ -35,7 +35,7 @@ void setAccelRange(Bmi088Accel &accel_handle, uint8_t range)
     accel_range = Bmi088Accel::RANGE_24G;
     break;
   default:
-    accel_range = Bmi088Accel::RANGE_24G;
+    accel_range = Bmi088Accel::RANGE_6G;
   }
   accel_handle.setRange(accel_range);
 }
@@ -61,7 +61,7 @@ void setGyroRange(Bmi088Gyro &gyro_handle, uint8_t range)
     gyro_range = Bmi088Gyro::RANGE_2000DPS;
     break;
   default:
-    gyro_range = Bmi088Gyro::RANGE_2000DPS;
+    gyro_range = Bmi088Gyro::RANGE_1000DPS;
   }
   gyro_handle.setRange(gyro_range);
 }
@@ -144,7 +144,7 @@ void setAccelOdr(Bmi088Accel &accel_handle, uint8_t odr)
     accel_odr = Bmi088Accel::ODR_1600HZ_BW_280HZ;
     break;
   default:
-    accel_odr = Bmi088Accel::ODR_1600HZ_BW_280HZ;
+    accel_odr = Bmi088Accel::ODR_400HZ_BW_40HZ;
   }
   accel_handle.setOdr(accel_odr);
 }
@@ -180,7 +180,7 @@ void setGyroOdr(Bmi088Gyro &gyro_handle, uint8_t odr)
     gyro_odr = Bmi088Gyro::ODR_2000HZ_BW_532HZ;
     break;
   default:
-    gyro_odr = Bmi088Gyro::ODR_2000HZ_BW_532HZ;
+    gyro_odr = Bmi088Gyro::ODR_1000HZ_BW_116HZ;
   }
   gyro_handle.setOdr(gyro_odr);
 }
