@@ -209,6 +209,63 @@ void ComplementaryFilter::update_gyro(double wx, double wy, double wz,
   double q0_pred, q1_pred, q2_pred, q3_pred;
   getPrediction(wx, wy, wz, dt,
                 q0_pred, q1_pred, q2_pred, q3_pred);
+  normalizeQuaternion(q0_pred, q1_pred, q2_pred, q3_pred);
+  q0_ = q0_pred;
+  q1_ = q1_pred;
+  q2_ = q2_pred;
+  q3_ = q3_pred;
+  
+}
+
+void ComplementaryFilter::update(double ax, double ay, double az, 
+                                 double wx, double wy, double wz,
+                                 double dt)
+{
+  if (!initialized_) 
+  {
+    // First time - ignore prediction:
+    getMeasurement(ax, ay, az,
+                   q0_, q1_, q2_, q3_);
+    initialized_ = true;
+    return;
+  }
+  
+  // Bias estimation.
+  if (do_bias_estimation_)
+    updateBiases(ax, ay, az, wx, wy, wz);
+
+  // Prediction.
+  double q0_pred, q1_pred, q2_pred, q3_pred;
+  getPrediction(wx, wy, wz, dt,
+                q0_pred, q1_pred, q2_pred, q3_pred);   
+     
+  // Correction (from acc): 
+  // q_ = q_pred * [(1-gain) * qI + gain * dq_acc]
+  // where qI = identity quaternion
+  double dq0_acc, dq1_acc, dq2_acc, dq3_acc;  
+  getAccCorrection(ax, ay, az,
+                   q0_pred, q1_pred, q2_pred, q3_pred,
+                   dq0_acc, dq1_acc, dq2_acc, dq3_acc);
+  
+  double gain;
+  if (do_adaptive_gain_)
+  {  
+    gain = getAdaptiveGain(gain_acc_, ax, ay, az);
+    
+  }
+  else
+  {
+    gain = gain_acc_;
+    
+  }
+
+  scaleQuaternion(gain, dq0_acc, dq1_acc, dq2_acc, dq3_acc);
+
+  quaternionMultiplication(q0_pred, q1_pred, q2_pred, q3_pred,
+                           dq0_acc, dq1_acc, dq2_acc, dq3_acc,
+                           q0_, q1_, q2_, q3_);
+
+  normalizeQuaternion(q0_, q1_, q2_, q3_);
 }
 
 void ComplementaryFilter::update(double ax, double ay, double az, 

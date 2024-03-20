@@ -81,6 +81,10 @@ class ComplementaryFilter
     void update_gyro(double wx, double wy, double wz,
                 double dt);
 
+
+    void update(double ax, double ay, double az, 
+                                 double wx, double wy, double wz,
+                                 double dt);
     // Update from accelerometer, gyroscope, and magnetometer data.
     // [ax, ay, az]: Normalized gravity vector.
     // [wx, wy, wz]: Angular veloctiy, in rad / s.
