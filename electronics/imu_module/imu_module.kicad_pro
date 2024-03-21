@@ -60,11 +60,18 @@
         }
       ],
       "drc_exclusions": [
+        "courtyards_overlap|13099999|39125148|00000000-0000-0000-0000-000061a8fe10|00000000-0000-0000-0000-000061a90cdb",
+        "courtyards_overlap|16900001|35874852|00000000-0000-0000-0000-000061a8fdf4|00000000-0000-0000-0000-000061a90cdb",
+        "lib_footprint_mismatch|10745000|16374000|00000000-0000-0000-0000-000061a90d9e|00000000-0000-0000-0000-000000000000",
+        "lib_footprint_mismatch|11350000|28000000|d63dffe2-38ab-457d-93cd-0ed7b1229c0d|00000000-0000-0000-0000-000000000000",
         "lib_footprint_mismatch|15000000|37500000|00000000-0000-0000-0000-000061a90cdb|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|23600000|37200000|00000000-0000-0000-0000-000061a8fdf4|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|5000000|2500000|00000000-0000-0000-0000-000061a90ccb|00000000-0000-0000-0000-000000000000",
-        "silk_edge_clearance|30000000|34340000|269f19c3-6824-45a8-be29-fa58d70cbb42|8e06ba1f-e3ba-4eb9-a10e-887dffd566d6",
-        "silk_over_copper|13065136|36769595|ffd175d1-912a-4224-be1e-a8198680f46b|00000000-0000-0000-0000-000000000000"
+        "lib_footprint_mismatch|15494000|29328000|6c077320-6079-449d-b15a-c9f0986f28cb|00000000-0000-0000-0000-000000000000",
+        "lib_footprint_mismatch|24384000|29328000|e1d686a4-c6bd-487e-8ecb-b9dd66f1387f|00000000-0000-0000-0000-000000000000",
+        "lib_footprint_mismatch|2500000|2500000|00000000-0000-0000-0000-000061a90ccb|00000000-0000-0000-0000-000000000000",
+        "lib_footprint_mismatch|27500000|2500000|00000000-0000-0000-0000-000061a90cd3|00000000-0000-0000-0000-000000000000",
+        "lib_footprint_mismatch|5500000|29328000|58e63df6-d9fe-49ea-b04a-999a50d76bcf|00000000-0000-0000-0000-000000000000",
+        "silk_edge_clearance|30000000|34340000|269f19c3-6824-45a8-be29-fa58d70cbb42|c2d5dd7a-8222-408f-9f4c-ce308a81d662",
+        "silk_over_copper|13065136|36769595|e084d266-412a-43b6-a7e0-0ba63b1cadf4|00000000-0000-0000-0000-000000000000"
       ],
       "meta": {
         "filename": "board_design_settings.json",
@@ -190,7 +197,7 @@
       ],
       "track_widths": [
         0.0,
-        0.125,
+        0.15,
         0.25,
         0.5
       ],
@@ -224,6 +231,10 @@
         {
           "diameter": 0.0,
           "drill": 0.0
+        },
+        {
+          "diameter": 0.5,
+          "drill": 0.3
         }
       ],
       "zones_allow_external_fillets": false,
@@ -468,7 +479,7 @@
     "classes": [
       {
         "bus_width": 12,
-        "clearance": 0.127,
+        "clearance": 0.15,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -485,7 +496,7 @@
       },
       {
         "bus_width": 12,
-        "clearance": 0.127,
+        "clearance": 0.15,
         "diff_pair_gap": 0.25,
         "diff_pair_via_gap": 0.25,
         "diff_pair_width": 0.2,
@@ -522,6 +533,10 @@
       {
         "netclass": "Power",
         "pattern": "GND"
+      },
+      {
+        "netclass": "Power",
+        "pattern": "5V_reg_out"
       }
     ]
   },
