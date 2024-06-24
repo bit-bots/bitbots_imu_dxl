@@ -37,9 +37,9 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 2.7,
-          "height": 4.0,
-          "width": 4.0
+          "drill": 0.0,
+          "height": 1.4,
+          "width": 1.6
         },
         "silk_line_width": 0.12,
         "silk_text_italic": false,
@@ -60,18 +60,13 @@
         }
       ],
       "drc_exclusions": [
-        "courtyards_overlap|13099999|39125148|00000000-0000-0000-0000-000061a8fe10|00000000-0000-0000-0000-000061a90cdb",
+        "copper_edge_clearance|0|2500000|00000000-0000-0000-0000-000061a909aa|b1982ca3-b4c8-4f31-a5cb-1ae5da46bd7d",
+        "copper_edge_clearance|15000000|40000000|38cfe839-c630-43d3-a9ec-6a89ba9e318a|afc98328-f4d5-421e-9ab6-611075cbbff9",
+        "copper_edge_clearance|30000000|2500000|269f19c3-6824-45a8-be29-fa58d70cbb42|1c0dfb02-1f78-44f6-8e7a-d65cb6efbb9c",
+        "courtyards_overlap|13099999|39121602|00000000-0000-0000-0000-000061a8fe10|00000000-0000-0000-0000-000061a90cdb",
         "courtyards_overlap|16900001|35874852|00000000-0000-0000-0000-000061a8fdf4|00000000-0000-0000-0000-000061a90cdb",
-        "lib_footprint_mismatch|10745000|16374000|00000000-0000-0000-0000-000061a90d9e|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|11350000|28000000|d63dffe2-38ab-457d-93cd-0ed7b1229c0d|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|15000000|37500000|00000000-0000-0000-0000-000061a90cdb|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|15494000|29328000|6c077320-6079-449d-b15a-c9f0986f28cb|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|24384000|29328000|e1d686a4-c6bd-487e-8ecb-b9dd66f1387f|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|2500000|2500000|00000000-0000-0000-0000-000061a90ccb|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|27500000|2500000|00000000-0000-0000-0000-000061a90cd3|00000000-0000-0000-0000-000000000000",
-        "lib_footprint_mismatch|5500000|29328000|58e63df6-d9fe-49ea-b04a-999a50d76bcf|00000000-0000-0000-0000-000000000000",
-        "silk_edge_clearance|30000000|34340000|269f19c3-6824-45a8-be29-fa58d70cbb42|c2d5dd7a-8222-408f-9f4c-ce308a81d662",
-        "silk_over_copper|13065136|36769595|e084d266-412a-43b6-a7e0-0ba63b1cadf4|00000000-0000-0000-0000-000000000000"
+        "unconnected_items|1957106|29370000|d23ffd66-d6a9-42a9-bbf4-533700473d8f|bfc4c8c6-469a-4fc0-b8b2-defae731c8b8",
+        "unconnected_items|26634000|33528000|53cd90ab-326f-4d95-a464-20c23d3a5866|e15e5155-e947-4ec4-9577-12bc683bb002"
       ],
       "meta": {
         "filename": "board_design_settings.json",

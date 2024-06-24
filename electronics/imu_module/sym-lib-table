@@ -4,4 +4,5 @@
   (lib (name "PXO7805-500-M-TR")(type "KiCad")(uri "${KIPRJMOD}/lib/PXO7805-500-M-TR.kicad_sym")(options "")(descr ""))
   (lib (name "SN74LV1T34DBVR")(type "KiCad")(uri "${KIPRJMOD}/lib/SN74LV1T34DBVR.kicad_sym")(options "")(descr ""))
   (lib (name "VLS5045EX-220M")(type "KiCad")(uri "${KIPRJMOD}/lib/VLS5045EX-220M.kicad_sym")(options "")(descr ""))
+  (lib (name "VXO")(type "Legacy")(uri "${KIPRJMOD}/lib/VXO7803-500-M.lib")(options "")(descr ""))
 )
