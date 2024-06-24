@@ -23,9 +23,10 @@
 #define INT_ACCEL 25
 #define INT_GYRO 16
 
-#define LED_PIN 4
+#define LED_PIN 27
 #define BUTTON0_PIN 2
-#define BUTTON1_PIN 15
+#define BUTTON1_PIN 32
+#define BUTTON2_PIN 4
 
 // UART definitions
 #define DXL_UART UART_NUM_0

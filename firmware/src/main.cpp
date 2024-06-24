@@ -114,6 +114,7 @@ void task_dxl(void *pvParameters)
 
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON0, buttons[0]);
   dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON1, buttons[1]);
+  dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON2, buttons[2]);
 
   dxl.addControlItem(ADDR_CONTROL_ITEM_GYRO_ODR, gyro_odr);
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_ODR, accel_odr);
@@ -308,6 +309,7 @@ void task_imu(void *pvParameters)
   {
     buttons[0] = !digitalRead(BUTTON0_PIN);
     buttons[1] = !digitalRead(BUTTON1_PIN);
+    buttons[2] = !digitalRead(BUTTON2_PIN);
 
     // synchronized reading requires setting up the interrupt of one sensor triggering the other
     // if required this can be implemented in the future as in the example in the BMI088 library
