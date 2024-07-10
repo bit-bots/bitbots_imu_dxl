@@ -258,6 +258,7 @@ void task_imu(void *pvParameters)
   // setup buttons
   pinMode(BUTTON0_PIN, INPUT_PULLUP);
   pinMode(BUTTON1_PIN, INPUT_PULLUP);
+  pinMode(BUTTON2_PIN, INPUT_PULLUP);
 
   int accel_status = accel_handle.begin();
   int gyro_status = gyro_handle.begin();
@@ -404,7 +405,7 @@ void task_imu(void *pvParameters)
         gyro[2] = tmp_gyro[2];
 
         int64_t current_update_time = esp_timer_get_time();
-        float dt = (float)(last_gyro_update - current_update_time) / 1e6;
+        float dt = (float)(current_update_time - last_gyro_update) / 1e6;
         last_gyro_update = current_update_time;
         filter_.update_gyro(gyro[0], gyro[1], gyro[2], dt);
         double q0, q1, q2, q3;
