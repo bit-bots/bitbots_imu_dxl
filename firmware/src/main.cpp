@@ -40,6 +40,8 @@ int64_t last_gyro_update = esp_timer_get_time();
 CRGB leds[NUM_LEDS];
 uint8_t buttons[3];
 
+uint8_t rx_timeout_thresh, txfifo_empty_thresh, rxfifo_full_thresh;
+
 void setup()
 {
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
@@ -74,15 +76,22 @@ void task_dxl(void *pvParameters)
 {
   (void)pvParameters;
   dxl_prefs.begin("dxl");
-  if (dxl_prefs.getUChar("init") != 42) // check if prefs are initialized
+  if (dxl_prefs.getUChar("init") != 43) // check if prefs are initialized
   {
     dxl_prefs.putUChar("id", DEFAULT_ID);
     dxl_prefs.putUChar("baud", DEFAULT_BAUD);
+    dxl_prefs.putUChar("rx_timeout_thresh", 1);
+    dxl_prefs.putUChar("txfifo_empty_thresh", 1);
+    dxl_prefs.putUChar("rxfifo_full_thresh", 1);
     dxl_prefs.putUChar("init", 42); // set initialized
   }
 
   id = dxl_prefs.getUChar("id");
   baud = dxl_prefs.getUChar("baud");
+
+  rx_timeout_thresh = dxl_prefs.getUChar("rx_timeout_thresh");
+  txfifo_empty_thresh = dxl_prefs.getUChar("txfifo_empty_thresh");
+  rxfifo_full_thresh = dxl_prefs.getUChar("rxfifo_full_thresh");
 
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VER_2_0);
   dxl.setFirmwareVersion(1);
@@ -126,12 +135,17 @@ void task_dxl(void *pvParameters)
   dxl.addControlItem(ADDR_CONTROL_ITEM_ACCEL_GAIN, accel_gain);
   dxl.addControlItem(ADDR_CONTROL_ITEM_BIAS_ALPHA, bias_alpha);
 
+  dxl.addControlItem(116, rx_timeout_thresh);
+  dxl.addControlItem(117, txfifo_empty_thresh);
+  dxl.addControlItem(118, rxfifo_full_thresh);
+
   dxl.setWriteCallbackFunc(write_callback_func);
 
   pinMode(DXL_DIR_PIN, OUTPUT);
   digitalWrite(DXL_DIR_PIN, LOW);
 
   uart.setBaudRate(dxl_to_real_baud(baud));
+  uart.setItrParams(rx_timeout_thresh, txfifo_empty_thresh, rxfifo_full_thresh);
   uart.begin();
 
   for (;;)
@@ -210,6 +224,25 @@ void write_callback_func(uint16_t item_addr, uint8_t &dxl_err_code, void *arg)
   {
     FastLED.show();
   }
+  else if (item_addr == 116)
+  {
+    dxl_prefs.putUChar("rx_timeout_thresh", rx_timeout_thresh);
+    //uart.setItrParams(rx_timeout_thresh, txfifo_empty_thresh, rxfifo_full_thresh);
+    //uart.begin();
+  }
+  else if (item_addr == 117)
+  {
+    dxl_prefs.putUChar("txfifo_empty_thresh", txfifo_empty_thresh);
+    //uart.setItrParams(rx_timeout_thresh, txfifo_empty_thresh, rxfifo_full_thresh);
+    //uart.begin();
+  }
+  else if (item_addr == 118)
+  {
+    dxl_prefs.putUChar("rxfifo_full_thresh", rxfifo_full_thresh);
+    //uart.setItrParams(rx_timeout_thresh, txfifo_empty_thresh, rxfifo_full_thresh);
+    //uart.begin();
+  
+  }
 }
 
 /*---------------------- IMU ---------------------*/
@@ -226,10 +259,19 @@ void IRAM_ATTR gyro_drdy_int() // IRAM_ATTR puts this function into ram, require
 
 void task_imu(void *pvParameters)
 {
+
+
+  // setup buttons
+  pinMode(BUTTON0_PIN, INPUT_PULLUP);
+  pinMode(BUTTON1_PIN, INPUT_PULLUP);
+  pinMode(BUTTON2_PIN, INPUT_PULLUP);
+  buttons[0] = 0;
+  buttons[1] = 0;
+  buttons[2] = 0;
+
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
 
   (void)pvParameters;
-  dxl.addControlItem(ADDR_CONTROL_ITEM_BUTTON2, buttons[2]);
   imu_prefs.begin("imu");
   if (imu_prefs.getUChar("init_imu") != 42) // check if prefs are initialized
   {
@@ -255,10 +297,6 @@ void task_imu(void *pvParameters)
   filter_.setDoBiasEstimation(do_bias_estimation);
   filter_.setBiasAlpha(bias_alpha);
 
-  // setup buttons
-  pinMode(BUTTON0_PIN, INPUT_PULLUP);
-  pinMode(BUTTON1_PIN, INPUT_PULLUP);
-  pinMode(BUTTON2_PIN, INPUT_PULLUP);
 
   int accel_status = accel_handle.begin();
   int gyro_status = gyro_handle.begin();

@@ -36,6 +36,12 @@ void ESP32UartPortHandler::setBaudRate(int baud_rate)
   baud_rate_ = baud_rate;
 }
 
+void ESP32UartPortHandler::setItrParams(uint8_t rx_timeout_thresh, uint8_t txfifo_empty_intr_thresh, uint8_t rxfifi_full_thresh) {
+  rx_timeout_thresh_ = rx_timeout_thresh;
+  txfifo_empty_intr_thresh_ = txfifo_empty_intr_thresh;
+  rxfifo_full_thresh_ = rxfifi_full_thresh;
+}
+
 void ESP32UartPortHandler::begin()
 {
 
@@ -49,9 +55,9 @@ void ESP32UartPortHandler::begin()
   };
   const uart_intr_config_t uart_intr_config_struct = {
       .intr_enable_mask = UART_RXFIFO_FULL_INT_ENA | UART_RXFIFO_TOUT_INT_ENA_M,
-      .rx_timeout_thresh = 1,
-      .txfifo_empty_intr_thresh = 1,
-      .rxfifo_full_thresh = 1,
+      .rx_timeout_thresh = rx_timeout_thresh_,
+      .txfifo_empty_intr_thresh = txfifo_empty_intr_thresh_,
+      .rxfifo_full_thresh = rxfifo_full_thresh_,
   };
 
   uart_driver_install(uart_num_, 256 * 2, 0, 0, NULL, 0);

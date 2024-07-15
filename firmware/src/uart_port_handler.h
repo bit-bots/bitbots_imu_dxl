@@ -15,6 +15,7 @@ class ESP32UartPortHandler : public DXLPortHandler
 {
 public:
   ESP32UartPortHandler(uint8_t uart_num, uint8_t tx_pin, uint8_t rx_pin, uint8_t dir_pin);
+  void setItrParams(uint8_t rx_timeout_thresh, uint8_t txfifo_empty_intr_thresh, uint8_t rxfifi_full_thresh);
   void begin();
   void end();
   int available();
@@ -36,6 +37,10 @@ private:
   uint8_t tx_pin_;
   uint8_t rx_pin_;
   uint8_t dxl_dir_pin_;
+
+  uint8_t rx_timeout_thresh_ = 1;
+  uint8_t txfifo_empty_intr_thresh_ = 1;
+  uint8_t rxfifo_full_thresh_ = 1;
 
   int baud_rate_;
 };
