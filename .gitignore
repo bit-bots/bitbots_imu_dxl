@@ -19,3 +19,5 @@ electronics/imu_module/production/backups/*
 # Platform IO
 firmware/.pio/*
 firmware/.vscode/*
+
+firmware/target/*
