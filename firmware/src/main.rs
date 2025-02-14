@@ -41,8 +41,6 @@ fn main() -> ! {
     let transport = DynamixelSerial::new(uart, BUS_BOUDRATE);
 
     device_loop(transport);
-
-    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/v0.23.1/examples/src/bin
 }
 
 fn device_loop(transport: DynamixelSerial) -> ! {
@@ -107,7 +105,10 @@ where
             error!("Unknown instruction {:?}", instruction)
         }
         instruction_catch_all => {
-            warn!("unimplemented instruction: {:?}", Debug2Format(&instruction_catch_all))
+            warn!(
+                "unimplemented instruction: {:?}",
+                Debug2Format(&instruction_catch_all)
+            )
         }
     };
     Ok(())
