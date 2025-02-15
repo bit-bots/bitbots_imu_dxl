@@ -35,7 +35,7 @@ impl<'d> DynamixelSerial<'d> {
     }
 }
 
-impl<'d> SerialPort for DynamixelSerial<'d> {
+impl SerialPort for DynamixelSerial<'_> {
     type Error = Error;
     type Instant = Instant;
 
