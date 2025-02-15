@@ -9,7 +9,6 @@ path = "./src/main.rs"
 
 [dependencies]
 critical-section = "1.2.0"
-esp-alloc = { version = "0.6.0" }
 esp-backtrace = { version = "0.15.0", features = [
   "esp32",
   "exception-handler",
@@ -22,11 +21,19 @@ log = { version = "0.4.21" }
 dynamixel2 = { git = "https://github.com/omelia-iliffe/dynamixel2-rs.git", branch = "no_std_example", default-features = false }
 embedded-io = "0.6.1"
 defmt = "0.3.10"
+esp-storage = { version = "0.4.0", features = ["esp32", "storage"] }
+embedded-storage = "0.3.1"
 
 [profile.dev]
 # Rust debug is too slow.
 # For debug builds always builds with some optimization
 opt-level = "s"
+
+[profile.dev.package.esp-storage]
+opt-level = 3
+
+[profile.release.package.esp-storage]
+opt-level = 3
 
 [profile.release]
 codegen-units    = 1     # LLVM can perform better optimizations using a single thread
