@@ -18,6 +18,7 @@ use esp_hal::{
     gpio::{Level, Output},
     main,
     uart::{Config as UartConfig, Uart},
+    reset
 };
 use esp_storage::FlashStorage;
 use log::{error, info, warn};
@@ -26,8 +27,6 @@ static mut APP_CORE_STACK: Stack<8192> = Stack::new();
 
 #[main]
 fn main() -> ! {
-    // generator version: 0.2.2
-
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
@@ -57,18 +56,19 @@ fn main() -> ! {
         DynamixelSerial::new(uart, config_manager.get(|c| c.bus_boudrate), &mut dir_pin);
 
     info!("Setting up secondary core");
-    let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
-    let _guard = cpu_control
-        .start_app_core(unsafe { &mut *addr_of_mut!(APP_CORE_STACK) }, || {
-            filter_loop(&common_state)
-        })
-        .unwrap();
+    //let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
+    //let _guard = cpu_control
+    //    .start_app_core(unsafe { &mut *addr_of_mut!(APP_CORE_STACK) }, || {
+    //        filter_loop(&common_state)
+    //    })
+    //    .unwrap();
 
     device_loop(transport, &common_state, &config_manager);
 }
 
 fn filter_loop(common_state: &Mutex<RefCell<u32>>) -> ! {
     let delay = Delay::new();
+
     loop {
         delay.delay_millis(100);
         info!("Secondary core loop");
@@ -119,9 +119,10 @@ where
     // Handle the different instructions
     match packet.instruction {
         Instructions::Ping => {
+            info!("Ping");
             // todo: this should wait for based on id for some amount of time
             device.write_status(device_id, 0, 3, |buffer| {
-                buffer[..2].copy_from_slice(&1020_u16.to_le_bytes()); // u16 MODEL NUMBER
+                buffer[..2].copy_from_slice(&43962_u16.to_le_bytes()); // u16 MODEL NUMBER
                 buffer[2] = 1; //u8 FIRMWARE VERSION
             })?;
         }
@@ -146,6 +147,10 @@ where
         }
         Instructions::Unknown { instruction, .. } => {
             error!("Unknown instruction {:?}", instruction)
+        }
+        Instructions::Reboot => {
+            info!("Reboot");
+            reset::software_reset();
         }
         instruction_catch_all => {
             warn!(

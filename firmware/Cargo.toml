@@ -26,6 +26,7 @@ embedded-storage = "0.3.1"
 serde = { version = "1.0.217", default-features = false, features = ["derive"] }
 serde-json-core = "0.6.0"
 heapless = { version = "0.8.0", features = ["serde"] }
+ndarray = { version = "0.16.1", default-features = false }
 
 [profile.dev]
 # Rust debug is too slow.

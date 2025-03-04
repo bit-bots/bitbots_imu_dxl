@@ -2,7 +2,6 @@ use core::cell::RefCell;
 
 use critical_section::Mutex;
 use embedded_storage::{ReadStorage, Storage};
-use esp_hal::delay;
 use esp_storage::FlashStorage;
 use heapless::{String, Vec};
 use log::{info, warn};
@@ -87,8 +86,6 @@ impl ConfigManager {
                 .read(self.flash_offset, &mut buffer)
                 .expect("Failed to read data from flash");
         });
-
-        info!("Config data: {:?}", buffer);
 
         // Try to parse the data as json and deserialize it
         if let Ok(data) = String::<CONFIG_SIZE>::from_utf8(Vec::from_slice(&buffer).unwrap()) {
