@@ -10,18 +10,31 @@ use core::{cell::RefCell, ptr::addr_of_mut, time::Duration};
 use critical_section::Mutex;
 use defmt::Debug2Format;
 use dynamixel2::{Device, Instructions, ReadError, SerialPort, TransferError};
+use embedded_hal_bus::spi::RefCellDevice;
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
     cpu_control::{CpuControl, Stack},
     delay::Delay,
     gpio::{Level, Output},
-    main,
+    ledc::{LSGlobalClkSource, Ledc},
+    main, reset,
+    rmt::Rmt,
+    spi::{
+        self,
+        master::{Config as SpiConfig, Spi},
+    },
+    time::RateExtU32,
     uart::{Config as UartConfig, Uart},
-    reset
 };
+use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
 use esp_storage::FlashStorage;
 use log::{error, info, warn};
+use smart_leds::{
+    brightness, gamma,
+    hsv::{hsv2rgb, Hsv},
+    SmartLedsWrite, RGB8,
+};
 
 static mut APP_CORE_STACK: Stack<8192> = Stack::new();
 
@@ -62,6 +75,78 @@ fn main() -> ! {
     //        filter_loop(&common_state)
     //    })
     //    .unwrap();
+
+    // Setup LEDs
+    let rmt = Rmt::new(peripherals.RMT, 80.MHz()).unwrap();
+
+    let rmt_buffer = smartLedBuffer!(3);
+    let mut led = SmartLedsAdapter::new(rmt.channel0, peripherals.GPIO27, rmt_buffer);
+
+    let delay = Delay::new();
+
+    fn get_color(hue: u8) -> RGB8 {
+        hsv2rgb(Hsv {
+            hue,
+            sat: 255,
+            val: 255,
+        })
+    }
+
+    let mut data;
+
+    loop {
+        // Iterate over the rainbow!
+        for hue in 0..=255 {
+            // Convert from the HSV color space (where we can easily transition from one
+            // color to the other) to the RGB color space that we can then send to the LED
+            data = [
+                get_color(hue),
+                get_color((hue + 255 / 3) % 255),
+                get_color((hue + 2 * (255 / 3)) % 255),
+            ];
+            // When sending to the LED, we do a gamma correction first (see smart_leds
+            // documentation for details) and then limit the brightness to 10 out of 255 so
+            // that the output it's not too bright.
+            led.write(brightness(gamma(data.iter().cloned()), 10))
+                .unwrap();
+            delay.delay_millis(20);
+        }
+    }
+
+    // Setup the IMU
+    info!("Setting up IMU");
+
+    let spi = RefCell::new(
+        Spi::new(peripherals.SPI2, SpiConfig::default())
+            .unwrap()
+            .with_sck(peripherals.GPIO19)
+            .with_mosi(peripherals.GPIO5)
+            .with_miso(peripherals.GPIO17),
+    );
+
+    let mut delay = Delay::new();
+
+    let accel_device =
+        RefCellDevice::new(&spi, Output::new(peripherals.GPIO26, Level::High), delay).unwrap();
+
+    let gyro_device =
+        RefCellDevice::new(&spi, Output::new(peripherals.GPIO18, Level::High), delay).unwrap();
+
+    let mut bmi088_g = bmi088::Builder::new_gyro_spi(gyro_device);
+    bmi088_g.setup(&mut delay).unwrap();
+
+    let mut bmi088_a = bmi088::Builder::new_accel_spi(accel_device);
+    bmi088_a.setup(&mut delay).unwrap();
+
+    loop {
+        if let Ok(gyro_sample) = bmi088_g.get_gyro() {
+            info!("bmi088_g: {:?}", gyro_sample);
+        }
+
+        if let Ok(accel_sample) = bmi088_a.get_accel() {
+            info!("bmi088_a: {:?}", accel_sample);
+        }
+    }
 
     device_loop(transport, &common_state, &config_manager);
 }
