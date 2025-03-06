@@ -52,7 +52,7 @@ impl SerialPort for DynamixelSerial<'_> {
     }
 
     fn read(&mut self, buffer: &mut [u8], deadline: &Self::Instant) -> Result<usize, Self::Error> {
-        let delay = Delay::new();
+        ///let delay = Delay::new();
         while deadline > &now() {
             let num_bytes_available = self
                 .serial
@@ -62,7 +62,7 @@ impl SerialPort for DynamixelSerial<'_> {
                 return Ok(num_bytes_available);
             }
             // Retry if no bytes are available
-            delay.delay_micros(10); // TODO check if this is the right delay
+            //delay.delay_micros(10); // TODO check if this is the right delay
         }
         Err(Error::Timeout)
     }

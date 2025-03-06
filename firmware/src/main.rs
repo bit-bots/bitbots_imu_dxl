@@ -3,35 +3,37 @@
 
 mod config;
 mod imu;
+mod led;
 mod transport;
 
 use crate::imu::IMUState;
 use crate::transport::DynamixelSerial;
-use bmi088::{Accelerometer, Gyroscope};
 use config::ConfigManager;
-use core::{cell::RefCell, fmt, ptr::addr_of_mut, time::Duration};
+use core::{
+    cell::RefCell,
+    fmt,
+    ptr::addr_of_mut,
+    time::{self, Duration},
+};
 use critical_section::Mutex;
 use defmt::Debug2Format;
 use dynamixel2::{Device, Instructions, ReadError, SerialPort, TransferError};
-use embedded_hal::spi::Mode;
 use embedded_hal_bus::{spi::AtomicDevice, util::AtomicCell};
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
     cpu_control::{CpuControl, Stack},
-    delay::{Delay, MicrosDurationU64},
+    delay::Delay,
     gpio::{Level, Output},
     main, reset,
-    rmt::Rmt,
+    rmt::{Rmt, TxChannel},
     spi::master::{Config as SpiConfig, Spi},
     time::{now, RateExtU32},
     uart::{Config as UartConfig, Uart},
 };
 use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
 use esp_storage::FlashStorage;
-use imu_fusion::FusionAhrsSettings;
 use log::{error, info, warn};
-use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
 static mut APP_CORE_STACK: Stack<8192> = Stack::new();
 
@@ -47,7 +49,7 @@ const LED_START_REG: usize = 10;
 const LED_REG_SIZE: usize = 4;
 const LED_REG_END: usize = LED_START_REG + NUM_LEDS * LED_REG_SIZE;
 
-const MODEL_NUMBER: u16 = 43962;
+const MODEL_NUMBER: u16 = 0xBAFF;
 const FIRMWARE_VERSION: u8 = 1;
 
 #[main]
@@ -81,8 +83,9 @@ fn main() -> ! {
 
     // Setup LEDs
     let rmt = Rmt::new(peripherals.RMT, 80.MHz()).unwrap();
-    let rmt_buffer = smartLedBuffer!(3);
-    let led = SmartLedsAdapter::new(rmt.channel0, peripherals.GPIO27, rmt_buffer);
+    let mut led_driver =
+        SmartLedsAdapter::new(rmt.channel0, peripherals.GPIO27, smartLedBuffer!(3));
+    let led = led::LedComponent::new(&mut led_driver);
 
     // Setup the IMU Device
     info!("Setting up IMU");
@@ -115,7 +118,7 @@ fn main() -> ! {
     let imu_state_ref = &imu_state;
     // Move everything into the closure
     let core_2_closure = move || {
-        filter_loop(imu_state_ref, gyro_device, accel_device);
+        imu::filter_loop(imu_state_ref, gyro_device, accel_device);
     };
     // Start the secondary core
     let _guard = cpu_control
@@ -129,131 +132,33 @@ fn main() -> ! {
     device_loop(transport, &imu_state, led, &config_manager);
 }
 
-fn filter_loop<S>(
-    imu_state: &Mutex<RefCell<IMUState>>,
-    mut gyro: Gyroscope<bmi088::SpiInterface<S>>,
-    mut accel: Accelerometer<bmi088::SpiInterface<S>>,
-) -> !
-where
-    S: embedded_hal::spi::SpiDevice + embedded_hal::spi::ErrorType,
-{
-    // Setup the Sensor Fusion
-    let ahrs_settings = FusionAhrsSettings::new();
-    let mut fusion = imu_fusion::Fusion::new(IMU_SAMPLE_RATE_HZ, ahrs_settings);
-
-    // Timing stuff
-    let mut previous_time = now();
-
-    // Profiling
-    let mut counter = 0;
-    let mut start_time = now();
-
-    // Main sensor loop
-    loop {
-        // Get the start time
-        let cycle_begin = now();
-
-        // Get the latest Gyroscope data
-        let gyro_sample = match gyro.get_gyro() {
-            Ok(sample) => imu_fusion::FusionVector::new(
-                // Cast to f32 and scale to degrees per second
-                sample[0] as f32 / i16::MAX as f32 * GYRO_RANGE,
-                sample[1] as f32 / i16::MAX as f32 * GYRO_RANGE,
-                sample[2] as f32 / i16::MAX as f32 * GYRO_RANGE,
-            ),
-            Err(e) => {
-                error!("Failed to get gyro data: {:?}", e);
-                continue;
-            }
-        };
-
-        // Get the latest Accelerometer data
-        let accel_sample = match accel.get_accel() {
-            Ok(sample) => imu_fusion::FusionVector::new(
-                // Cast to f32 and scale to G
-                sample[0] as f32 / i16::MAX as f32 * ACCEL_RANGE,
-                sample[1] as f32 / i16::MAX as f32 * ACCEL_RANGE,
-                sample[2] as f32 / i16::MAX as f32 * ACCEL_RANGE,
-            ),
-            Err(e) => {
-                error!("Failed to get accel data: {:?}", e);
-                continue;
-            }
-        };
-
-        // Time keeping
-        let current_time = now();
-        let delta_time = current_time - previous_time;
-
-        // Update the filter
-        fusion.update_no_mag_by_duration_seconds(
-            gyro_sample,
-            accel_sample,
-            Duration::from_nanos(delta_time.to_nanos()).as_secs_f32(),
-        );
-
-        // Update the shared state
-        critical_section::with(|cs| {
-            imu_state.borrow(cs).replace(IMUState {
-                orientation: fusion.quaternion(),
-                gyro: gyro_sample,
-                accel: accel_sample,
-            });
-        });
-
-        // Update the time
-        previous_time = current_time;
-
-        // Delay to keep the loop rate (busy wait because the delay is not accurate enough)
-        let mut cycle_time = now() - cycle_begin;
-        while cycle_time < MicrosDurationU64::Hz(IMU_SAMPLE_RATE_HZ as u64) {
-            cycle_time = now() - cycle_begin;
-        }
-
-        counter += 1;
-        if counter % 1000 == 0 {
-            warn!(
-                "Loop rate: {}",
-                1000.0 / Duration::from_nanos((now() - start_time).to_nanos()).as_secs_f32()
-            );
-            start_time = now();
-        }
-    }
-}
-
-fn device_loop<LedWriter, LedError>(
+fn device_loop<LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
     transport: DynamixelSerial,
     imu_state: &Mutex<RefCell<IMUState>>,
-    mut led: LedWriter,
+    mut led: led::LedComponent<LEDC, LED_BUFFER_SIZE>,
     config_manager: &ConfigManager,
-) -> !
-where
-    LedWriter: SmartLedsWrite<Error = LedError, Color = RGB8>,
-    LedError: fmt::Debug,
-{
+) -> ! {
     let mut device = Device::with_buffers(transport, [0; 200], [0; 200])
         .expect("Failed to initialize dynamixel device");
     loop {
-        info!("Waiting for packet");
         if let Err(e) = process_packet(&mut device, imu_state, &mut led, config_manager) {
             error!("{:?}", Debug2Format(&e))
         }
     }
 }
 
-fn process_packet<ReadBuffer, WriteBuffer, LedWriter, LedError>(
+fn process_packet<ReadBuffer, WriteBuffer, LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
     device: &mut Device<ReadBuffer, WriteBuffer, DynamixelSerial>,
     imu_state: &Mutex<RefCell<IMUState>>,
-    led: &mut LedWriter,
+    led: &mut led::LedComponent<LEDC, LED_BUFFER_SIZE>,
     config_manager: &ConfigManager,
 ) -> Result<(), TransferError<transport::Error>>
 where
     WriteBuffer: AsRef<[u8]> + AsMut<[u8]>,
     ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
-    LedWriter: SmartLedsWrite<Error = LedError, Color = RGB8>,
-    LedError: fmt::Debug,
 {
-    let packet = device.read(Duration::from_millis(1000)); // TODO revert to 10
+    let packet = device.read(Duration::from_millis(1)); // TODO revert to 10
+    let time1 = now();
     if matches!(&packet,
 		Err(ReadError::Io(e)) if DynamixelSerial::is_timeout_error(&e))
     {
@@ -266,6 +171,9 @@ where
 
     // Check if the packet is for us
     if packet.id != device_id && packet.id != 254 {
+        let time2 = now();
+        let duration = time2 - time1;
+        info!("Processed packet in {:?}ys", duration.to_micros());
         // 254 is the broadcast id (?)
         return Ok(());
     }
@@ -335,7 +243,6 @@ where
                 (ID_REG, _) => {
                     config_manager.set(|c| c.id = parameters[0]);
                     device.write_status_ok(device_id)?;
-                    return Ok(());
                 }
                 // Set Boudrate command
                 (BAUDRATE_REG, _) => {
@@ -348,7 +255,7 @@ where
                         5 => 3000000,
                         6 => 4000000,
                         _ => {
-                            device.write_status_error(device_id, 0x07)?;
+                            device.write_status_error(device_id, 0x07)?; // TODO fix error codes
                             return Ok(());
                         }
                     };
@@ -358,29 +265,14 @@ where
                 }
                 // Set LED state
                 (LED_START_REG..=LED_REG_END, _) => {
-                    // Get led state from the registers
-                    let mut led_state = [0; 4 * 3];
-
                     // Update the led state
-                    led_state[address - LED_START_REG..address - LED_START_REG + length]
+                    led.state[address - LED_START_REG..address - LED_START_REG + length]
                         .copy_from_slice(parameters);
-
-                    // Parse the led state and write it to the leds
-                    let colors = (0..NUM_LEDS).map(|i| {
-                        let led_index = i * LED_REG_SIZE;
-                        RGB8 {
-                            r: led_state[led_index + 3],
-                            g: led_state[led_index + 2],
-                            b: led_state[led_index + 1],
-                        }
-                    });
-                    led.write(brightness(gamma(colors), 10)).unwrap();
+                    led.send();
                     device.write_status_ok(device_id)?;
-                    return Ok(());
                 }
                 _ => {
                     device.write_status_error(device_id, 0x07)?;
-                    return Ok(());
                 }
             }
         }
@@ -398,5 +290,8 @@ where
             )
         }
     };
+    let time2 = now();
+    let duration = time2 - time1;
+    info!("Processed packet in {:?}ys", duration.to_micros());
     Ok(())
 }
