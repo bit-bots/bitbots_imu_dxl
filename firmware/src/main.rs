@@ -2,41 +2,53 @@
 #![no_main]
 
 mod config;
+mod imu;
 mod transport;
 
+use crate::imu::IMUState;
 use crate::transport::DynamixelSerial;
+use bmi088::{Accelerometer, Gyroscope};
 use config::ConfigManager;
-use core::{cell::RefCell, ptr::addr_of_mut, time::Duration};
+use core::{cell::RefCell, fmt, ptr::addr_of_mut, time::Duration};
 use critical_section::Mutex;
 use defmt::Debug2Format;
 use dynamixel2::{Device, Instructions, ReadError, SerialPort, TransferError};
-use embedded_hal_bus::spi::RefCellDevice;
+use embedded_hal::spi::Mode;
+use embedded_hal_bus::{spi::AtomicDevice, util::AtomicCell};
 use esp_backtrace as _;
 use esp_hal::{
     clock::CpuClock,
     cpu_control::{CpuControl, Stack},
-    delay::Delay,
+    delay::{Delay, MicrosDurationU64},
     gpio::{Level, Output},
-    ledc::{LSGlobalClkSource, Ledc},
     main, reset,
     rmt::Rmt,
-    spi::{
-        self,
-        master::{Config as SpiConfig, Spi},
-    },
-    time::RateExtU32,
+    spi::master::{Config as SpiConfig, Spi},
+    time::{now, RateExtU32},
     uart::{Config as UartConfig, Uart},
 };
 use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
 use esp_storage::FlashStorage;
+use imu_fusion::FusionAhrsSettings;
 use log::{error, info, warn};
-use smart_leds::{
-    brightness, gamma,
-    hsv::{hsv2rgb, Hsv},
-    SmartLedsWrite, RGB8,
-};
+use smart_leds::{brightness, gamma, SmartLedsWrite, RGB8};
 
 static mut APP_CORE_STACK: Stack<8192> = Stack::new();
+
+const GYRO_RANGE: f32 = 2000.0; // 2000 degrees per second
+const ACCEL_RANGE: f32 = 6.0; // 6 G
+
+const IMU_SAMPLE_RATE_HZ: u32 = 400; // Check if imu is also in the 400 Hz mode
+
+const ID_REG: usize = 7;
+const BAUDRATE_REG: usize = 8;
+const NUM_LEDS: usize = 3;
+const LED_START_REG: usize = 10;
+const LED_REG_SIZE: usize = 4;
+const LED_REG_END: usize = LED_START_REG + NUM_LEDS * LED_REG_SIZE;
+
+const MODEL_NUMBER: u16 = 43962;
+const FIRMWARE_VERSION: u8 = 1;
 
 #[main]
 fn main() -> ! {
@@ -45,7 +57,6 @@ fn main() -> ! {
 
     esp_println::logger::init_logger_from_env();
     info!("Starting up");
-    let common_state = Mutex::new(RefCell::new(0)); // TODO replace with actual struct
 
     // Store simple data in flash
     info!("Loading config from persistent storage");
@@ -68,55 +79,15 @@ fn main() -> ! {
     let transport =
         DynamixelSerial::new(uart, config_manager.get(|c| c.bus_boudrate), &mut dir_pin);
 
-    info!("Setting up secondary core");
-    //let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
-    //let _guard = cpu_control
-    //    .start_app_core(unsafe { &mut *addr_of_mut!(APP_CORE_STACK) }, || {
-    //        filter_loop(&common_state)
-    //    })
-    //    .unwrap();
-
     // Setup LEDs
     let rmt = Rmt::new(peripherals.RMT, 80.MHz()).unwrap();
-
     let rmt_buffer = smartLedBuffer!(3);
-    let mut led = SmartLedsAdapter::new(rmt.channel0, peripherals.GPIO27, rmt_buffer);
+    let led = SmartLedsAdapter::new(rmt.channel0, peripherals.GPIO27, rmt_buffer);
 
-    let delay = Delay::new();
-
-    fn get_color(hue: u8) -> RGB8 {
-        hsv2rgb(Hsv {
-            hue,
-            sat: 255,
-            val: 255,
-        })
-    }
-
-    let mut data;
-
-    loop {
-        // Iterate over the rainbow!
-        for hue in 0..=255 {
-            // Convert from the HSV color space (where we can easily transition from one
-            // color to the other) to the RGB color space that we can then send to the LED
-            data = [
-                get_color(hue),
-                get_color((hue + 255 / 3) % 255),
-                get_color((hue + 2 * (255 / 3)) % 255),
-            ];
-            // When sending to the LED, we do a gamma correction first (see smart_leds
-            // documentation for details) and then limit the brightness to 10 out of 255 so
-            // that the output it's not too bright.
-            led.write(brightness(gamma(data.iter().cloned()), 10))
-                .unwrap();
-            delay.delay_millis(20);
-        }
-    }
-
-    // Setup the IMU
+    // Setup the IMU Device
     info!("Setting up IMU");
 
-    let spi = RefCell::new(
+    let spi = AtomicCell::new(
         Spi::new(peripherals.SPI2, SpiConfig::default())
             .unwrap()
             .with_sck(peripherals.GPIO19)
@@ -126,63 +97,161 @@ fn main() -> ! {
 
     let mut delay = Delay::new();
 
-    let accel_device =
-        RefCellDevice::new(&spi, Output::new(peripherals.GPIO26, Level::High), delay).unwrap();
+    let mut gyro_device = bmi088::Builder::new_gyro_spi(
+        AtomicDevice::new(&spi, Output::new(peripherals.GPIO18, Level::High), delay).unwrap(),
+    );
+    gyro_device.setup(&mut delay).unwrap();
 
-    let gyro_device =
-        RefCellDevice::new(&spi, Output::new(peripherals.GPIO18, Level::High), delay).unwrap();
+    let mut accel_device = bmi088::Builder::new_accel_spi(
+        AtomicDevice::new(&spi, Output::new(peripherals.GPIO26, Level::High), delay).unwrap(),
+    );
+    accel_device.setup(&mut delay).unwrap();
 
-    let mut bmi088_g = bmi088::Builder::new_gyro_spi(gyro_device);
-    bmi088_g.setup(&mut delay).unwrap();
+    let imu_state = Mutex::new(RefCell::new(IMUState::default()));
 
-    let mut bmi088_a = bmi088::Builder::new_accel_spi(accel_device);
-    bmi088_a.setup(&mut delay).unwrap();
+    info!("Setting up secondary core");
+    let mut cpu_control = CpuControl::new(peripherals.CPU_CTRL);
+    // This is needed to the imu_state is borrowed in the closure
+    let imu_state_ref = &imu_state;
+    // Move everything into the closure
+    let core_2_closure = move || {
+        filter_loop(imu_state_ref, gyro_device, accel_device);
+    };
+    // Start the secondary core
+    let _guard = cpu_control
+        .start_app_core(
+            unsafe { &mut *addr_of_mut!(APP_CORE_STACK) },
+            core_2_closure,
+        )
+        .unwrap();
 
-    loop {
-        if let Ok(gyro_sample) = bmi088_g.get_gyro() {
-            info!("bmi088_g: {:?}", gyro_sample);
-        }
-
-        if let Ok(accel_sample) = bmi088_a.get_accel() {
-            info!("bmi088_a: {:?}", accel_sample);
-        }
-    }
-
-    device_loop(transport, &common_state, &config_manager);
+    // Spin
+    device_loop(transport, &imu_state, led, &config_manager);
 }
 
-fn filter_loop(common_state: &Mutex<RefCell<u32>>) -> ! {
-    let delay = Delay::new();
+fn filter_loop<S>(
+    imu_state: &Mutex<RefCell<IMUState>>,
+    mut gyro: Gyroscope<bmi088::SpiInterface<S>>,
+    mut accel: Accelerometer<bmi088::SpiInterface<S>>,
+) -> !
+where
+    S: embedded_hal::spi::SpiDevice + embedded_hal::spi::ErrorType,
+{
+    // Setup the Sensor Fusion
+    let ahrs_settings = FusionAhrsSettings::new();
+    let mut fusion = imu_fusion::Fusion::new(IMU_SAMPLE_RATE_HZ, ahrs_settings);
 
+    // Timing stuff
+    let mut previous_time = now();
+
+    // Profiling
+    let mut counter = 0;
+    let mut start_time = now();
+
+    // Main sensor loop
     loop {
-        delay.delay_millis(100);
-        info!("Secondary core loop");
+        // Get the start time
+        let cycle_begin = now();
+
+        // Get the latest Gyroscope data
+        let gyro_sample = match gyro.get_gyro() {
+            Ok(sample) => imu_fusion::FusionVector::new(
+                // Cast to f32 and scale to degrees per second
+                sample[0] as f32 / i16::MAX as f32 * GYRO_RANGE,
+                sample[1] as f32 / i16::MAX as f32 * GYRO_RANGE,
+                sample[2] as f32 / i16::MAX as f32 * GYRO_RANGE,
+            ),
+            Err(e) => {
+                error!("Failed to get gyro data: {:?}", e);
+                continue;
+            }
+        };
+
+        // Get the latest Accelerometer data
+        let accel_sample = match accel.get_accel() {
+            Ok(sample) => imu_fusion::FusionVector::new(
+                // Cast to f32 and scale to G
+                sample[0] as f32 / i16::MAX as f32 * ACCEL_RANGE,
+                sample[1] as f32 / i16::MAX as f32 * ACCEL_RANGE,
+                sample[2] as f32 / i16::MAX as f32 * ACCEL_RANGE,
+            ),
+            Err(e) => {
+                error!("Failed to get accel data: {:?}", e);
+                continue;
+            }
+        };
+
+        // Time keeping
+        let current_time = now();
+        let delta_time = current_time - previous_time;
+
+        // Update the filter
+        fusion.update_no_mag_by_duration_seconds(
+            gyro_sample,
+            accel_sample,
+            Duration::from_nanos(delta_time.to_nanos()).as_secs_f32(),
+        );
+
+        // Update the shared state
+        critical_section::with(|cs| {
+            imu_state.borrow(cs).replace(IMUState {
+                orientation: fusion.quaternion(),
+                gyro: gyro_sample,
+                accel: accel_sample,
+            });
+        });
+
+        // Update the time
+        previous_time = current_time;
+
+        // Delay to keep the loop rate (busy wait because the delay is not accurate enough)
+        let mut cycle_time = now() - cycle_begin;
+        while cycle_time < MicrosDurationU64::Hz(IMU_SAMPLE_RATE_HZ as u64) {
+            cycle_time = now() - cycle_begin;
+        }
+
+        counter += 1;
+        if counter % 1000 == 0 {
+            warn!(
+                "Loop rate: {}",
+                1000.0 / Duration::from_nanos((now() - start_time).to_nanos()).as_secs_f32()
+            );
+            start_time = now();
+        }
     }
 }
 
-fn device_loop(
+fn device_loop<LedWriter, LedError>(
     transport: DynamixelSerial,
-    common_state: &Mutex<RefCell<u32>>,
+    imu_state: &Mutex<RefCell<IMUState>>,
+    mut led: LedWriter,
     config_manager: &ConfigManager,
-) -> ! {
+) -> !
+where
+    LedWriter: SmartLedsWrite<Error = LedError, Color = RGB8>,
+    LedError: fmt::Debug,
+{
     let mut device = Device::with_buffers(transport, [0; 200], [0; 200])
         .expect("Failed to initialize dynamixel device");
     loop {
         info!("Waiting for packet");
-        if let Err(e) = process_packet(&mut device, common_state, config_manager) {
+        if let Err(e) = process_packet(&mut device, imu_state, &mut led, config_manager) {
             error!("{:?}", Debug2Format(&e))
         }
     }
 }
 
-fn process_packet<ReadBuffer, WriteBuffer>(
+fn process_packet<ReadBuffer, WriteBuffer, LedWriter, LedError>(
     device: &mut Device<ReadBuffer, WriteBuffer, DynamixelSerial>,
-    common_state: &Mutex<RefCell<u32>>,
+    imu_state: &Mutex<RefCell<IMUState>>,
+    led: &mut LedWriter,
     config_manager: &ConfigManager,
 ) -> Result<(), TransferError<transport::Error>>
 where
     WriteBuffer: AsRef<[u8]> + AsMut<[u8]>,
     ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
+    LedWriter: SmartLedsWrite<Error = LedError, Color = RGB8>,
+    LedError: fmt::Debug,
 {
     let packet = device.read(Duration::from_millis(1000)); // TODO revert to 10
     if matches!(&packet,
@@ -207,34 +276,119 @@ where
             info!("Ping");
             // todo: this should wait for based on id for some amount of time
             device.write_status(device_id, 0, 3, |buffer| {
-                buffer[..2].copy_from_slice(&43962_u16.to_le_bytes()); // u16 MODEL NUMBER
-                buffer[2] = 1; //u8 FIRMWARE VERSION
+                buffer[..2].copy_from_slice(&MODEL_NUMBER.to_le_bytes()); // u16 MODEL NUMBER
+                buffer[2] = FIRMWARE_VERSION; //u8 FIRMWARE VERSION
             })?;
         }
         Instructions::Read { address, length } => {
-            if let Some(data) = todo!("get your data for reading") {
-                device.write_status(device_id, 0, length as usize, |buffer| {
-                    buffer.copy_from_slice(data);
-                })?;
-            } else {
+            const IMU_STATE_START_REG: usize = 36;
+            const NUM_REG: usize = 128;
+
+            // Cast the address and length to usize
+            let address = address as usize;
+            let length = length as usize;
+
+            // Check if the address and length are in the range of the registers
+            if address + length > NUM_REG {
                 device.write_status_error(device_id, 0x07)?;
+                return Ok(()); // The requested registers are out of range, but the packet was processed successfully
             }
+
+            // Get the imu state
+            let imu_buffer =
+                critical_section::with(|cs| imu_state.borrow_ref(cs).clone()).to_le_buffer();
+
+            // Assemble the registers
+            let mut registers = [0; NUM_REG];
+            registers[..2].copy_from_slice(&MODEL_NUMBER.to_le_bytes()); // u16 MODEL NUMBER
+            registers[2] = FIRMWARE_VERSION; //u8 FIRMWARE VERSION
+            registers[ID_REG] = config_manager.get(|c| c.id);
+            registers[BAUDRATE_REG] = match config_manager.get(|c| c.bus_boudrate) {
+                9600 => 0,
+                57600 => 1,
+                115200 => 2,
+                1000000 => 3,
+                2000000 => 4,
+                3000000 => 5,
+                4000000 => 6,
+                _ => unreachable!(),
+            };
+            registers[IMU_STATE_START_REG..IMU_STATE_START_REG + imu_buffer.len()]
+                .copy_from_slice(&imu_buffer);
+            // TODO other registers
+
+            // Answer the read request
+            device.write_status(device_id, 0, length, |buffer| {
+                buffer.copy_from_slice(&registers[address..address + length]);
+            })?;
         }
         Instructions::Write {
             address,
             parameters,
         } => {
-            if todo!("perform the write") {
-                device.write_status_ok(device_id)?;
-            } else {
-                device.write_status_error(device_id, 0x07)?;
+            let address = address as usize;
+            let length = parameters.len();
+            let end_address = address + length;
+
+            match (address, end_address) {
+                // Set ID command
+                (ID_REG, _) => {
+                    config_manager.set(|c| c.id = parameters[0]);
+                    device.write_status_ok(device_id)?;
+                    return Ok(());
+                }
+                // Set Boudrate command
+                (BAUDRATE_REG, _) => {
+                    let baudrate = match parameters[0] {
+                        0 => 9600,
+                        1 => 57600,
+                        2 => 115200,
+                        3 => 1000000,
+                        4 => 2000000,
+                        5 => 3000000,
+                        6 => 4000000,
+                        _ => {
+                            device.write_status_error(device_id, 0x07)?;
+                            return Ok(());
+                        }
+                    };
+                    config_manager.set(|c| c.bus_boudrate = baudrate);
+                    device.write_status_ok(device_id)?;
+                    reset::software_reset();
+                }
+                // Set LED state
+                (LED_START_REG..=LED_REG_END, _) => {
+                    // Get led state from the registers
+                    let mut led_state = [0; 4 * 3];
+
+                    // Update the led state
+                    led_state[address - LED_START_REG..address - LED_START_REG + length]
+                        .copy_from_slice(parameters);
+
+                    // Parse the led state and write it to the leds
+                    let colors = (0..NUM_LEDS).map(|i| {
+                        let led_index = i * LED_REG_SIZE;
+                        RGB8 {
+                            r: led_state[led_index + 3],
+                            g: led_state[led_index + 2],
+                            b: led_state[led_index + 1],
+                        }
+                    });
+                    led.write(brightness(gamma(colors), 10)).unwrap();
+                    device.write_status_ok(device_id)?;
+                    return Ok(());
+                }
+                _ => {
+                    device.write_status_error(device_id, 0x07)?;
+                    return Ok(());
+                }
             }
         }
         Instructions::Unknown { instruction, .. } => {
             error!("Unknown instruction {:?}", instruction)
         }
         Instructions::Reboot => {
-            info!("Reboot");
+            warn!("Reboot triggered over DXL");
             reset::software_reset();
         }
         instruction_catch_all => {

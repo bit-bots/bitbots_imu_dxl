@@ -26,11 +26,12 @@ embedded-storage = "0.3.1"
 serde = { version = "1.0.217", default-features = false, features = ["derive"] }
 serde-json-core = "0.6.0"
 heapless = { version = "0.8.0", features = ["serde"] }
-ndarray = { version = "0.16.1", default-features = false }
 bmi088 = { version = "0.2.1", path = "../../bmi088" }
 embedded-hal-bus = "0.3.0"
 esp-hal-smartled = { git = "https://github.com/esp-rs/esp-hal-community", rev = "ad75112" }
 smart-leds = "0.4.0"
+embedded-hal = "1.0.0"
+imu-fusion = "0.2.5"
 
 [profile.dev]
 # Rust debug is too slow.
