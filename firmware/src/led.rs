@@ -20,9 +20,9 @@ impl<'a, C: TxChannel, const BUFFER_SIZE: usize> LedComponent<'a, C, BUFFER_SIZE
         let colors = (0..crate::NUM_LEDS).map(|i| {
             let led_index = i * crate::LED_REG_SIZE;
             RGB8 {
-                r: state[led_index + 3],
-                g: state[led_index + 2],
-                b: state[led_index + 1],
+                r: state[led_index + 0],
+                g: state[led_index + 1],
+                b: state[led_index + 2],
             }
         });
         self.driver.write(brightness(gamma(colors), 10)).unwrap();
