@@ -1,18 +1,13 @@
-use core::{cell::RefCell, num, time::Duration};
+use core::{cell::RefCell, time::Duration};
 use critical_section::Mutex;
 use defmt::{info, warn};
 use dynamixel2::SerialPort;
 use embedded_io::Write;
 use esp_hal::{
-    delay::Delay,
     gpio::Output,
     time::{now, ExtU64, Instant},
     uart::{Error as UartError, Uart},
-    Blocking,
 };
-use heapless::Deque;
-
-use crate::NUM_LEDS;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -24,11 +19,15 @@ pub enum Error {
 pub struct DynamixelSerial<'d, 'e> {
     serial: &'d Mutex<RefCell<Option<Uart<'d, esp_hal::Blocking>>>>,
     baud_rate: u32,
-    dir: &'e mut Output<'e>
+    dir: &'e mut Output<'e>,
 }
 
 impl<'d, 'e> DynamixelSerial<'d, 'e> {
-    pub fn new(serial: &'d Mutex<RefCell<Option<Uart<'d, esp_hal::Blocking>>>>, baud_rate: u32, dir: &'e mut Output<'e>) -> Self {
+    pub fn new(
+        serial: &'d Mutex<RefCell<Option<Uart<'d, esp_hal::Blocking>>>>,
+        baud_rate: u32,
+        dir: &'e mut Output<'e>,
+    ) -> Self {
         // Set direction pin to low just to be sure
         dir.set_low();
         // Initialize the struct
@@ -57,59 +56,31 @@ impl SerialPort for DynamixelSerial<'_, '_> {
     }
 
     fn read(&mut self, buffer: &mut [u8], deadline: &Self::Instant) -> Result<usize, Self::Error> {
-        // Busy wait until deadline is reached or data is available
-        /*
-        
         while deadline > &now() {
             let a = critical_section::with(|cs| {
-                let mut queue = crate::RX_QUEUE
-                .borrow_ref_mut(cs);
-            
-            // Copy data from queue to buffer
-            let mut idx = 0;
-            while let Some(byte) = queue.pop_front() {
-                buffer[idx] = byte;
-                idx += 1;
+                let mut queue = crate::RX_QUEUE.borrow_ref_mut(cs);
+
+                // Copy data from queue to buffer
+                if let Some(byte) = queue.pop_front() {
+                    buffer[0] = byte;
+                    return 1;
+                }
+                return 0;
+            });
+            if a > 0 {
+                return Ok(a);
             }
-            return idx;
-        });
-        if a > 0 {
-            return Ok(a);
-        }     
-    }
-    Err(Error::Timeout)
-    */
-
-    while deadline > &now() {
-        let a = critical_section::with(|cs| {
-            let mut queue = crate::RX_QUEUE
-            .borrow_ref_mut(cs);
-        
-        // Copy data from queue to buffer
-        if let Some(byte) = queue.pop_front() {
-            buffer[0] = byte;
-            return 1;
         }
-        return 0;
-    });
-    if a > 0 {
-        return Ok(a);
-    }    
-
-    }
-    Err(Error::Timeout)
-
+        Err(Error::Timeout)
     }
 
     fn write_all(&mut self, buffer: &[u8]) -> Result<(), Self::Error> {
         critical_section::with(|cs| {
             self.dir.set_high();
-            let mut serial = self.serial
-                .borrow_ref_mut(cs);
+            let mut serial = self.serial.borrow_ref_mut(cs);
             let serial = serial.as_mut().unwrap();
 
-            serial.write_all(buffer)
-                .unwrap();
+            serial.write_all(buffer).unwrap();
             Write::flush(serial).unwrap();
             self.dir.set_low();
         });

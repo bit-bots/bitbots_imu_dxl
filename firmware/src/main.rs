@@ -16,17 +16,28 @@ use dynamixel2::{Device, Instructions, ReadError, SerialPort, TransferError};
 use embedded_hal_bus::{spi::AtomicDevice, util::AtomicCell};
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock, cpu_control::{CpuControl, Stack}, delay::Delay, gpio::{Level, Output}, handler, interrupt::InterruptConfigurable, main, peripheral::Peripheral, reset, rmt::{Rmt, TxChannel}, spi::master::{Config as SpiConfig, Spi}, time::{now, RateExtU32}, uart::{Config as UartConfig, Uart, UartInterrupt}
+    clock::CpuClock,
+    cpu_control::{CpuControl, Stack},
+    delay::Delay,
+    gpio::{Level, Output},
+    handler,
+    interrupt::InterruptConfigurable,
+    main,
+    peripheral::Peripheral,
+    reset,
+    rmt::{Rmt, TxChannel},
+    spi::master::{Config as SpiConfig, Spi},
+    time::{now, RateExtU32},
+    uart::{Config as UartConfig, Uart, UartInterrupt},
 };
 use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
 use esp_storage::FlashStorage;
-use log::{error, info, warn};
 use heapless::Deque;
+use log::{error, info, warn};
 
 static mut APP_CORE_STACK: Stack<8192> = Stack::new();
 
-static SERIAL: Mutex<RefCell<Option<Uart<esp_hal::Blocking>>>> =
-    Mutex::new(RefCell::new(None));
+static SERIAL: Mutex<RefCell<Option<Uart<esp_hal::Blocking>>>> = Mutex::new(RefCell::new(None));
 
 static RX_QUEUE: Mutex<RefCell<Deque<u8, 512>>> = Mutex::new(RefCell::new(Deque::new()));
 
@@ -64,12 +75,12 @@ fn main() -> ! {
         peripherals.UART2,
         UartConfig::default()
             .with_baudrate(config_manager.get(|c| c.bus_boudrate))
-            .with_rx_fifo_full_threshold(1)
+            .with_rx_fifo_full_threshold(1),
     )
     .expect("Failed to initialize UART controller")
     .with_rx(peripherals.GPIO21)
     .with_tx(peripherals.GPIO23);
-    let mut dir_pin= Output::new(peripherals.GPIO22, Level::Low);
+    let mut dir_pin = Output::new(peripherals.GPIO22, Level::Low);
 
     uart.set_interrupt_handler(interrupt_handler);
 
@@ -81,9 +92,12 @@ fn main() -> ! {
 
     // Setup the transport layer for the dynamixel communication
     info!("Setting up dynamixel communication layer");
-    
-    let transport =
-        DynamixelSerial::new(&SERIAL, config_manager.get(|c| c.bus_boudrate), &mut dir_pin);
+
+    let transport = DynamixelSerial::new(
+        &SERIAL,
+        config_manager.get(|c| c.bus_boudrate),
+        &mut dir_pin,
+    );
 
     // Setup LEDs
     let rmt = Rmt::new(peripherals.RMT, 80.MHz()).unwrap();
@@ -136,13 +150,11 @@ fn main() -> ! {
     device_loop(transport, &imu_state, led, &config_manager);
 }
 
-
-
 #[handler]
 fn interrupt_handler() {
     critical_section::with(|cs| {
         let mut serial = SERIAL.borrow_ref_mut(cs);
-        let serial = serial.as_mut().unwrap();
+        let serial: &mut Uart<'_, esp_hal::Blocking> = serial.as_mut().unwrap();
 
         let mut buf = [0u8; 64];
         if let Ok(cnt) = serial.read_buffered_bytes(&mut buf) {
@@ -152,12 +164,9 @@ fn interrupt_handler() {
             }
         }
 
-        serial.clear_interrupts(
-            UartInterrupt::RxFifoFull.into()
-        );
+        serial.clear_interrupts(UartInterrupt::RxFifoFull.into());
     });
 }
-
 
 fn device_loop<LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
     transport: DynamixelSerial,
@@ -200,7 +209,10 @@ where
     if packet.id != device_id && packet.id != 254 {
         let time2 = now();
         let duration = time2 - time1;
-        info!("Processed packet for other device in {:?}ys", duration.to_micros());
+        //info!(
+        //    "Processed packet for other device in {:?}ys",
+        //    duration.to_micros()
+        //);
         // 254 is the broadcast id (?)
         return Ok(());
     }
@@ -232,7 +244,7 @@ where
             // Get the imu state
             let imu_buffer =
                 critical_section::with(|cs| imu_state.borrow_ref(cs).clone()).to_le_buffer();
-            
+
             // Assemble the registers
             let mut registers = [0; NUM_REG];
             registers[..2].copy_from_slice(&MODEL_NUMBER.to_le_bytes()); // u16 MODEL NUMBER
@@ -310,15 +322,33 @@ where
             warn!("Reboot triggered over DXL");
             reset::software_reset();
         }
+        Instructions::SyncRead {
+            address: _,
+            length: _,
+            ids,
+        } => {
+            // Check if our id is in the list
+            if ids.contains(&device_id) {
+                warn!("The IMU does not support sync read yet");
+            }
+        }
+        Instructions::SyncWrite {
+            address: _,
+            parameters: _,
+            length: _,
+        } => {
+            warn!("The IMU does not support sync write yet")
+        }
         instruction_catch_all => {
             warn!(
-                "unimplemented instruction: {:?}",
-                Debug2Format(&instruction_catch_all)
+                "unimplemented instruction: {:?} send to id: {}",
+                Debug2Format(&instruction_catch_all),
+                packet.id
             )
         }
     };
     let time2 = now();
     let duration = time2 - time1;
-    info!("Processed packet in {:?}ys", duration.to_micros());
+    //info!("Processed packet in {:?}ys", duration.to_micros());
     Ok(())
 }
