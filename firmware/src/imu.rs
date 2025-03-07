@@ -112,10 +112,10 @@ where
         // Get the latest Accelerometer data
         let accel_sample = match accel.get_accel() {
             Ok(sample) => imu_fusion::FusionVector::new(
-                // Cast to f32 and scale to G
-                sample[1] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
-                sample[0] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
-                -sample[2] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
+                // Cast to f32 and scale to m/s^2
+                sample[1] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE * 9.81,
+                sample[0] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE * 9.81,
+                -sample[2] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE * 9.81,
             ),
             Err(e) => {
                 error!("Failed to get accel data: {:?}", e);
