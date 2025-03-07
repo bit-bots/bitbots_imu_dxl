@@ -1,4 +1,5 @@
 use core::{cell::RefCell, time::Duration};
+
 use critical_section::Mutex;
 use dynamixel2::SerialPort;
 use embedded_io::Write;

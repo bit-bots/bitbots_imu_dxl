@@ -1,11 +1,11 @@
-use imu_fusion::{FusionQuaternion, FusionVector};
+use core::{cell::RefCell, fmt, time::Duration};
 
 use bmi088::{Accelerometer, Gyroscope};
-use core::{cell::RefCell, fmt, time::Duration};
 use critical_section::Mutex;
 use esp_backtrace as _;
 use esp_hal::{delay::MicrosDurationU64, time::now};
 use imu_fusion::FusionAhrsSettings;
+use imu_fusion::{FusionQuaternion, FusionVector};
 use log::{error, warn};
 
 #[derive(Clone, Copy)]
