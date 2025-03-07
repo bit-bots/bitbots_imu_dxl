@@ -9,33 +9,26 @@ mod transport;
 use crate::imu::IMUState;
 use crate::transport::DynamixelSerial;
 use config::ConfigManager;
-use core::{
-    cell::RefCell,
-    fmt,
-    ptr::addr_of_mut,
-    time::{self, Duration},
-};
+use core::{cell::RefCell, ptr::addr_of_mut, time::Duration};
 use critical_section::Mutex;
 use defmt::Debug2Format;
 use dynamixel2::{Device, Instructions, ReadError, SerialPort, TransferError};
 use embedded_hal_bus::{spi::AtomicDevice, util::AtomicCell};
 use esp_backtrace as _;
 use esp_hal::{
-    clock::CpuClock,
-    cpu_control::{CpuControl, Stack},
-    delay::Delay,
-    gpio::{Level, Output},
-    main, reset,
-    rmt::{Rmt, TxChannel},
-    spi::master::{Config as SpiConfig, Spi},
-    time::{now, RateExtU32},
-    uart::{Config as UartConfig, Uart},
+    clock::CpuClock, cpu_control::{CpuControl, Stack}, delay::Delay, gpio::{Level, Output}, handler, interrupt::InterruptConfigurable, main, peripheral::Peripheral, reset, rmt::{Rmt, TxChannel}, spi::master::{Config as SpiConfig, Spi}, time::{now, RateExtU32}, uart::{Config as UartConfig, Uart, UartInterrupt}
 };
 use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
 use esp_storage::FlashStorage;
 use log::{error, info, warn};
+use heapless::Deque;
 
 static mut APP_CORE_STACK: Stack<8192> = Stack::new();
+
+static SERIAL: Mutex<RefCell<Option<Uart<esp_hal::Blocking>>>> =
+    Mutex::new(RefCell::new(None));
+
+static RX_QUEUE: Mutex<RefCell<Deque<u8, 512>>> = Mutex::new(RefCell::new(Deque::new()));
 
 const GYRO_RANGE: f32 = 2000.0; // 2000 degrees per second
 const ACCEL_RANGE: f32 = 6.0; // 6 G
@@ -67,19 +60,30 @@ fn main() -> ! {
 
     // Setup UART communication
     info!("Setting up UART communication");
-    let uart = Uart::new(
+    let mut uart: Uart<'_, esp_hal::Blocking> = Uart::new(
         peripherals.UART2,
-        UartConfig::default().with_baudrate(config_manager.get(|c| c.bus_boudrate)),
+        UartConfig::default()
+            .with_baudrate(config_manager.get(|c| c.bus_boudrate))
+            .with_rx_fifo_full_threshold(1)
     )
     .expect("Failed to initialize UART controller")
     .with_rx(peripherals.GPIO21)
     .with_tx(peripherals.GPIO23);
-    let mut dir_pin = Output::new(peripherals.GPIO22, Level::Low);
+    let mut dir_pin= Output::new(peripherals.GPIO22, Level::Low);
+
+    uart.set_interrupt_handler(interrupt_handler);
+
+    critical_section::with(|cs| {
+        uart.listen(UartInterrupt::RxFifoFull);
+
+        SERIAL.borrow_ref_mut(cs).replace(uart);
+    });
 
     // Setup the transport layer for the dynamixel communication
     info!("Setting up dynamixel communication layer");
+    
     let transport =
-        DynamixelSerial::new(uart, config_manager.get(|c| c.bus_boudrate), &mut dir_pin);
+        DynamixelSerial::new(&SERIAL, config_manager.get(|c| c.bus_boudrate), &mut dir_pin);
 
     // Setup LEDs
     let rmt = Rmt::new(peripherals.RMT, 80.MHz()).unwrap();
@@ -132,6 +136,29 @@ fn main() -> ! {
     device_loop(transport, &imu_state, led, &config_manager);
 }
 
+
+
+#[handler]
+fn interrupt_handler() {
+    critical_section::with(|cs| {
+        let mut serial = SERIAL.borrow_ref_mut(cs);
+        let serial = serial.as_mut().unwrap();
+
+        let mut buf = [0u8; 64];
+        if let Ok(cnt) = serial.read_buffered_bytes(&mut buf) {
+            // Push the bytes to the queue
+            for i in 0..cnt {
+                RX_QUEUE.borrow_ref_mut(cs).push_back(buf[i]).ok();
+            }
+        }
+
+        serial.clear_interrupts(
+            UartInterrupt::RxFifoFull.into()
+        );
+    });
+}
+
+
 fn device_loop<LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
     transport: DynamixelSerial,
     imu_state: &Mutex<RefCell<IMUState>>,
@@ -157,12 +184,12 @@ where
     WriteBuffer: AsRef<[u8]> + AsMut<[u8]>,
     ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
 {
-    let packet = device.read(Duration::from_millis(1)); // TODO revert to 10
+    let packet = device.read(Duration::from_micros(1000)); // TODO revert to 10
     let time1 = now();
     if matches!(&packet,
 		Err(ReadError::Io(e)) if DynamixelSerial::is_timeout_error(&e))
     {
-        info!("Timeout");
+        //info!("Timeout");
         return Ok(());
     }
 
@@ -173,7 +200,7 @@ where
     if packet.id != device_id && packet.id != 254 {
         let time2 = now();
         let duration = time2 - time1;
-        info!("Processed packet in {:?}ys", duration.to_micros());
+        info!("Processed packet for other device in {:?}ys", duration.to_micros());
         // 254 is the broadcast id (?)
         return Ok(());
     }
@@ -205,7 +232,7 @@ where
             // Get the imu state
             let imu_buffer =
                 critical_section::with(|cs| imu_state.borrow_ref(cs).clone()).to_le_buffer();
-
+            
             // Assemble the registers
             let mut registers = [0; NUM_REG];
             registers[..2].copy_from_slice(&MODEL_NUMBER.to_le_bytes()); // u16 MODEL NUMBER
