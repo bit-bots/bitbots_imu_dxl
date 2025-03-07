@@ -24,7 +24,7 @@ impl IMUState {
         }
     }
 
-    pub fn to_le_buffer(&self) -> [u8; 40] {
+    pub fn to_le_buffer(self) -> [u8; 40] {
         let mut buffer = [0; 40];
         let elements = [
             self.gyro.x,

@@ -6,7 +6,6 @@ use esp_storage::FlashStorage;
 use heapless::{String, Vec};
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use serde_json_core;
 
 // 128 bytes are used to store the config as a json in flash memory
 // This is not the most efficient way to store the data, but we have enough space

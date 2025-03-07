@@ -1,5 +1,6 @@
 #![no_std]
 #![no_main]
+#![feature(inline_const_pat)]
 
 mod config;
 mod imu;
@@ -15,6 +16,8 @@ use defmt::Debug2Format;
 use dynamixel2::{Device, Instructions, ReadError, SerialPort, TransferError};
 use embedded_hal_bus::{spi::AtomicDevice, util::AtomicCell};
 use esp_backtrace as _;
+#[cfg(feature = "profiling")]
+use esp_hal::time::now;
 use esp_hal::{
     clock::CpuClock,
     cpu_control::{CpuControl, Stack},
@@ -25,7 +28,7 @@ use esp_hal::{
     main, reset,
     rmt::{Rmt, TxChannel},
     spi::master::{Config as SpiConfig, Spi},
-    time::{now, RateExtU32},
+    time::RateExtU32,
     uart::{Config as UartConfig, Uart, UartInterrupt},
 };
 use esp_hal_smartled::{smartLedBuffer, SmartLedsAdapter};
@@ -44,12 +47,16 @@ const ACCEL_RANGE: f32 = 6.0; // 6 G
 
 const IMU_SAMPLE_RATE_HZ: u32 = 400; // Check if imu is also in the 400 Hz mode
 
+const NUM_REG: usize = 128;
 const ID_REG: usize = 7;
 const BAUDRATE_REG: usize = 8;
-const NUM_LEDS: usize = 3;
+const BAUDRATE_OPTIONS: [u32; 7] = [
+    9600, 57600, 115_200, 1_000_000, 2_000_000, 3_000_000, 4_000_000,
+];
 const LED_START_REG: usize = 10;
 const LED_REG_SIZE: usize = 4;
-const LED_REG_END: usize = LED_START_REG + NUM_LEDS * LED_REG_SIZE;
+const NUM_LEDS: usize = 3;
+const IMU_STATE_START_REG: usize = 36;
 
 const MODEL_NUMBER: u16 = 0xBAFF;
 const FIRMWARE_VERSION: u8 = 1;
@@ -148,20 +155,36 @@ fn main() -> ! {
     device_loop(transport, &imu_state, led, &config_manager);
 }
 
+/// Reboot the device after the panic was displayed.
+#[no_mangle]
+pub extern "Rust" fn custom_halt() -> ! {
+    error!("The chip will restart shortly!");
+    // Wait so the error is definatly flushed and visible in the terminal
+    let delay = Delay::new();
+    delay.delay_millis(1000);
+    // Reset the chip, maybe the error is gone :D
+    reset::software_reset();
+    unreachable!();
+}
+
 #[handler]
 fn interrupt_handler() {
     critical_section::with(|cs| {
+        // Get/Lock UART interface
         let mut serial = SERIAL.borrow_ref_mut(cs);
         let serial: &mut Uart<'_, esp_hal::Blocking> = serial.as_mut().unwrap();
 
+        // Copy bytes from uart into our queue
         let mut buf = [0u8; 64];
-        if let Ok(cnt) = serial.read_buffered_bytes(&mut buf) {
+        if let Ok(num_bytes) = serial.read_buffered_bytes(&mut buf) {
             // Push the bytes to the queue
-            for i in 0..cnt {
-                RX_QUEUE.borrow_ref_mut(cs).push_back(buf[i]).ok();
+            let mut queue = RX_QUEUE.borrow_ref_mut(cs);
+            for &byte in buf.iter().take(num_bytes) {
+                queue.push_back(byte).ok();
             }
         }
 
+        // We processed this interrupt, so we can clear it
         serial.clear_interrupts(UartInterrupt::RxFifoFull.into());
     });
 }
@@ -192,26 +215,29 @@ where
     ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
 {
     let packet = device.read(Duration::from_micros(1000)); // TODO revert to 10
-    let time1 = now();
+
+    #[cfg(feature = "profiling")]
+    let profiling_t1 = now();
+
     if matches!(&packet,
-		Err(ReadError::Io(e)) if DynamixelSerial::is_timeout_error(&e))
+		Err(ReadError::Io(e)) if DynamixelSerial::is_timeout_error(e))
     {
-        //info!("Timeout");
         return Ok(());
     }
 
     let packet = packet?;
     let device_id = config_manager.get(|c| c.id);
 
-    // Check if the packet is for us
+    // Only continue if the packet is for us or the broadcast id
     if packet.id != device_id && packet.id != 254 {
-        let time2 = now();
-        let duration = time2 - time1;
-        //info!(
-        //    "Processed packet for other device in {:?}ys",
-        //    duration.to_micros()
-        //);
-        // 254 is the broadcast id (?)
+        #[cfg(feature = "profiling")]
+        {
+            let profiling_d1 = now() - profiling_t1;
+            info!(
+                "Processed packet for other device in {:?}us",
+                profiling_d1.to_micros()
+            );
+        }
         return Ok(());
     }
 
@@ -226,9 +252,6 @@ where
             })?;
         }
         Instructions::Read { address, length } => {
-            const IMU_STATE_START_REG: usize = 36;
-            const NUM_REG: usize = 128;
-
             // Cast the address and length to usize
             let address = address as usize;
             let length = length as usize;
@@ -240,24 +263,17 @@ where
             }
 
             // Get the imu state
-            let imu_buffer =
-                critical_section::with(|cs| imu_state.borrow_ref(cs).clone()).to_le_buffer();
+            let imu_buffer = critical_section::with(|cs| imu_state.borrow_ref(cs).to_le_buffer());
 
             // Assemble the registers
             let mut registers = [0; NUM_REG];
             registers[..2].copy_from_slice(&MODEL_NUMBER.to_le_bytes()); // u16 MODEL NUMBER
             registers[2] = FIRMWARE_VERSION; //u8 FIRMWARE VERSION
             registers[ID_REG] = config_manager.get(|c| c.id);
-            registers[BAUDRATE_REG] = match config_manager.get(|c| c.bus_boudrate) {
-                9600 => 0,
-                57600 => 1,
-                115200 => 2,
-                1000000 => 3,
-                2000000 => 4,
-                3000000 => 5,
-                4000000 => 6,
-                _ => unreachable!(),
-            };
+            registers[BAUDRATE_REG] = BAUDRATE_OPTIONS
+                .iter()
+                .position(|&x| x == config_manager.get(|c| c.bus_boudrate))
+                .unwrap() as u8;
             registers[IMU_STATE_START_REG..IMU_STATE_START_REG + imu_buffer.len()]
                 .copy_from_slice(&imu_buffer);
             // TODO other registers
@@ -277,31 +293,31 @@ where
 
             match (address, end_address) {
                 // Set ID command
-                (ID_REG, _) => {
+                (ID_REG, const { ID_REG + 1 }) => {
                     config_manager.set(|c| c.id = parameters[0]);
                     device.write_status_ok(device_id)?;
                 }
                 // Set Boudrate command
-                (BAUDRATE_REG, _) => {
-                    let baudrate = match parameters[0] {
-                        0 => 9600,
-                        1 => 57600,
-                        2 => 115200,
-                        3 => 1000000,
-                        4 => 2000000,
-                        5 => 3000000,
-                        6 => 4000000,
-                        _ => {
+                (BAUDRATE_REG, const { BAUDRATE_REG + 1 }) => {
+                    match BAUDRATE_OPTIONS.get(parameters[0] as usize) {
+                        // Save the new baudrate in flash and reboot
+                        Some(&baudrate) => {
+                            config_manager.set(|c| c.bus_boudrate = baudrate);
+                            device.write_status_ok(device_id).ok(); // Don't handle send error as we reboot either way
+                            reset::software_reset();
+                        }
+                        // The selected baudrate is not supported
+                        None => {
                             device.write_status_error(device_id, 0x07)?; // TODO fix error codes
                             return Ok(());
                         }
-                    };
-                    config_manager.set(|c| c.bus_boudrate = baudrate);
-                    device.write_status_ok(device_id)?;
-                    reset::software_reset();
+                    }
                 }
                 // Set LED state
-                (LED_START_REG..=LED_REG_END, _) => {
+                (
+                    LED_START_REG..=const { LED_START_REG + NUM_LEDS * LED_REG_SIZE },
+                    LED_START_REG..=const { LED_START_REG + NUM_LEDS * LED_REG_SIZE },
+                ) => {
                     // Update the led state
                     led.state[address - LED_START_REG..address - LED_START_REG + length]
                         .copy_from_slice(parameters);
@@ -345,8 +361,12 @@ where
             )
         }
     };
-    let time2 = now();
-    let duration = time2 - time1;
-    //info!("Processed packet in {:?}ys", duration.to_micros());
+
+    #[cfg(feature = "profiling")]
+    {
+        let profiling_d1 = now() - profiling_t1;
+        info!("Processed packet in {:?}us", profiling_d1.to_micros());
+    }
+
     Ok(())
 }

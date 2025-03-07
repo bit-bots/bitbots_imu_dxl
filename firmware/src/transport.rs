@@ -1,6 +1,5 @@
 use core::{cell::RefCell, time::Duration};
 use critical_section::Mutex;
-use defmt::{info, warn};
 use dynamixel2::SerialPort;
 use embedded_io::Write;
 use esp_hal::{
@@ -12,8 +11,8 @@ use esp_hal::{
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum Error {
-    UartReadError(UartError), // TODO look at error handling
-    UartWriteError(UartError),
+    UartRead(UartError), // TODO look at error handling
+    UartWrite(UartError),
     Timeout,
 }
 pub struct DynamixelSerial<'d, 'e> {
@@ -57,7 +56,8 @@ impl SerialPort for DynamixelSerial<'_, '_> {
 
     fn read(&mut self, buffer: &mut [u8], deadline: &Self::Instant) -> Result<usize, Self::Error> {
         while deadline > &now() {
-            let a = critical_section::with(|cs| {
+            let num_bytes_read = critical_section::with(|cs| {
+                // Lock queue
                 let mut queue = crate::RX_QUEUE.borrow_ref_mut(cs);
 
                 // Copy data from queue to buffer
@@ -65,10 +65,10 @@ impl SerialPort for DynamixelSerial<'_, '_> {
                     buffer[0] = byte;
                     return 1;
                 }
-                return 0;
+                0
             });
-            if a > 0 {
-                return Ok(a);
+            if num_bytes_read > 0 {
+                return Ok(num_bytes_read);
             }
         }
         Err(Error::Timeout)
@@ -80,11 +80,17 @@ impl SerialPort for DynamixelSerial<'_, '_> {
             let mut serial = self.serial.borrow_ref_mut(cs);
             let serial = serial.as_mut().unwrap();
 
-            serial.write_all(buffer).unwrap();
-            Write::flush(serial).unwrap();
+            // Encapsulate write and flush together
+            // That way we can reset the dir pin even if they fail
+            let result = || -> Result<(), UartError> {
+                serial.write_all(buffer)?;
+                Write::flush(serial)
+            }()
+            .map_err(Error::UartWrite);
+
             self.dir.set_low();
-        });
-        Ok(())
+            result
+        })
     }
 
     fn make_deadline(&self, timeout: Duration) -> Self::Instant {
