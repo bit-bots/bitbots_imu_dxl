@@ -1,4 +1,3 @@
-use embedded_hal::delay::DelayNs;
 use imu_fusion::{FusionQuaternion, FusionVector};
 
 use bmi088::{Accelerometer, Gyroscope};
@@ -100,9 +99,9 @@ where
         let gyro_sample = match gyro.get_gyro() {
             Ok(sample) => imu_fusion::FusionVector::new(
                 // Cast to f32 and scale to degrees per second
-                sample[0] as f32 / i16::MAX as f32 * crate::GYRO_RANGE,
                 sample[1] as f32 / i16::MAX as f32 * crate::GYRO_RANGE,
-                sample[2] as f32 / i16::MAX as f32 * crate::GYRO_RANGE,
+                sample[0] as f32 / i16::MAX as f32 * crate::GYRO_RANGE,
+                -sample[2] as f32 / i16::MAX as f32 * crate::GYRO_RANGE,
             ),
             Err(e) => {
                 error!("Failed to get gyro data: {:?}", e);
@@ -114,9 +113,9 @@ where
         let accel_sample = match accel.get_accel() {
             Ok(sample) => imu_fusion::FusionVector::new(
                 // Cast to f32 and scale to G
-                sample[0] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
                 sample[1] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
-                sample[2] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
+                sample[0] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
+                -sample[2] as f32 / i16::MAX as f32 * crate::ACCEL_RANGE,
             ),
             Err(e) => {
                 error!("Failed to get accel data: {:?}", e);
