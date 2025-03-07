@@ -9,8 +9,11 @@ use esp_hal::time::now;
 use esp_hal::{reset, rmt::TxChannel};
 use log::{error, info, warn};
 
-use crate::{config::ConfigManager, imu::IMUState, led, transport::DynamixelSerial};
 use crate::{
+    config::ConfigManager,
+    imu::IMUState,
+    led,
+    transport::{self, DynamixelSerial},
     BAUDRATE_OPTIONS, BAUDRATE_REG, FIRMWARE_VERSION, ID_REG, IMU_STATE_START_REG, LED_REG_SIZE,
     LED_START_REG, MODEL_NUMBER, NUM_LEDS, NUM_REG,
 };
