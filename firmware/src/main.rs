@@ -2,6 +2,7 @@
 #![no_main]
 #![feature(inline_const_pat)]
 
+mod buttons;
 mod config;
 mod device;
 mod imu;
@@ -32,7 +33,9 @@ use esp_storage::FlashStorage;
 use heapless::Deque;
 use log::{error, info};
 
+use crate::buttons::ButtonComponent;
 use crate::imu::IMUState;
+use crate::led::LedComponent;
 use crate::transport::DynamixelSerial;
 
 static mut APP_CORE_STACK: Stack<8192> = Stack::new();
@@ -56,6 +59,8 @@ const LED_START_REG: usize = 10;
 const LED_REG_SIZE: usize = 4;
 const NUM_LEDS: usize = 3;
 const IMU_STATE_START_REG: usize = 36;
+const NUM_BUTTONS: usize = 3;
+const BUTTON_START_REG: usize = 76;
 
 const MODEL_NUMBER: u16 = 0xBAFF;
 const FIRMWARE_VERSION: u8 = 1;
@@ -105,7 +110,11 @@ fn main() -> ! {
     let rmt = Rmt::new(peripherals.RMT, 80.MHz()).unwrap();
     let mut led_driver =
         SmartLedsAdapter::new(rmt.channel0, peripherals.GPIO27, smartLedBuffer!(3));
-    let led = led::LedComponent::new(&mut led_driver);
+    let led = LedComponent::new(&mut led_driver);
+
+    // Setup Buttons
+    let button_driver =
+        ButtonComponent::new(peripherals.GPIO2, peripherals.GPIO32, peripherals.GPIO4);
 
     // Setup the IMU Device
     info!("Setting up IMU");
@@ -149,7 +158,7 @@ fn main() -> ! {
         .unwrap();
 
     // Spin
-    device::device_loop(transport, &imu_state, led, &config_manager);
+    device::device_loop(transport, &imu_state, led, button_driver, &config_manager);
 }
 
 /// Reboot the device after the panic was displayed.

@@ -10,24 +10,32 @@ use esp_hal::{reset, rmt::TxChannel};
 use log::{error, info, warn};
 
 use crate::{
+    buttons::ButtonComponent,
     config::ConfigManager,
     imu::IMUState,
     led,
     transport::{self, DynamixelSerial},
-    BAUDRATE_OPTIONS, BAUDRATE_REG, FIRMWARE_VERSION, ID_REG, IMU_STATE_START_REG, LED_REG_SIZE,
-    LED_START_REG, MODEL_NUMBER, NUM_LEDS, NUM_REG,
+    BAUDRATE_OPTIONS, BAUDRATE_REG, BUTTON_START_REG, FIRMWARE_VERSION, ID_REG,
+    IMU_STATE_START_REG, LED_REG_SIZE, LED_START_REG, MODEL_NUMBER, NUM_BUTTONS, NUM_LEDS, NUM_REG,
 };
 
 pub fn device_loop<LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
     transport: DynamixelSerial,
     imu_state: &Mutex<RefCell<IMUState>>,
     mut led: led::LedComponent<LEDC, LED_BUFFER_SIZE>,
+    mut buttons: ButtonComponent,
     config_manager: &ConfigManager,
 ) -> ! {
     let mut device = Device::with_buffers(transport, [0; 200], [0; 200])
         .expect("Failed to initialize dynamixel device");
     loop {
-        if let Err(e) = process_packet(&mut device, imu_state, &mut led, config_manager) {
+        if let Err(e) = process_packet(
+            &mut device,
+            imu_state,
+            &mut led,
+            &mut buttons,
+            config_manager,
+        ) {
             error!("{:?}", Debug2Format(&e))
         }
     }
@@ -37,6 +45,7 @@ fn process_packet<ReadBuffer, WriteBuffer, LEDC: TxChannel, const LED_BUFFER_SIZ
     device: &mut Device<ReadBuffer, WriteBuffer, DynamixelSerial>,
     imu_state: &Mutex<RefCell<IMUState>>,
     led: &mut led::LedComponent<LEDC, LED_BUFFER_SIZE>,
+    buttons: &mut ButtonComponent,
     config_manager: &ConfigManager,
 ) -> Result<(), TransferError<transport::Error>>
 where
@@ -107,7 +116,8 @@ where
                 .unwrap() as u8;
             registers[IMU_STATE_START_REG..IMU_STATE_START_REG + imu_buffer.len()]
                 .copy_from_slice(&imu_buffer);
-            // TODO other registers
+            registers[BUTTON_START_REG..BUTTON_START_REG + NUM_BUTTONS]
+                .copy_from_slice(&buttons.read_u8());
 
             // Answer the read request
             device.write_status(device_id, 0, length, |buffer| {
