@@ -54,7 +54,9 @@ where
         return Ok(());
     }
 
+    // Bubble up the remaining errors
     let packet = packet?;
+
     let device_id = config_manager.get(|c| c.id);
 
     // Only continue if the packet is for us or the broadcast id
