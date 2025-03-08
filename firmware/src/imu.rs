@@ -6,7 +6,9 @@ use esp_backtrace as _;
 use esp_hal::{delay::MicrosDurationU64, time::now};
 use imu_fusion::FusionAhrsSettings;
 use imu_fusion::{FusionQuaternion, FusionVector};
-use log::{error, warn};
+use log::error;
+#[cfg(feature = "profiling")]
+use log::info;
 
 #[derive(Clone, Copy)]
 pub struct IMUState {
@@ -80,14 +82,17 @@ where
     S: embedded_hal::spi::SpiDevice + embedded_hal::spi::ErrorType,
 {
     // Setup the Sensor Fusion
-    let ahrs_settings = FusionAhrsSettings::new();
+    let mut ahrs_settings = FusionAhrsSettings::new();
+    ahrs_settings.gain = 0.05f32; // Default is 0.5, but we can make it more aggressive because our IMU is very good and we want little noise due to a noisy gravity vector
     let mut fusion = imu_fusion::Fusion::new(crate::IMU_SAMPLE_RATE_HZ, ahrs_settings);
 
     // Timing stuff
     let mut previous_time = now();
 
     // Profiling
+    #[cfg(feature = "profiling")]
     let mut counter = 0;
+    #[cfg(feature = "profiling")]
     let mut start_time = now();
 
     // Main sensor loop
@@ -152,13 +157,17 @@ where
             cycle_time = now() - cycle_begin;
         }
 
-        counter += 1;
-        if counter % 1000 == 0 {
-            warn!(
-                "Loop rate: {}",
-                1000.0 / Duration::from_nanos((now() - start_time).to_nanos()).as_secs_f32()
-            );
-            start_time = now();
+        // Profiling
+        #[cfg(feature = "profiling")]
+        {
+            counter += 1;
+            if counter % 1000 == 0 {
+                info!(
+                    "Loop rate: {}",
+                    1000.0 / Duration::from_nanos((now() - start_time).to_nanos()).as_secs_f32()
+                );
+                start_time = now();
+            }
         }
     }
 }
