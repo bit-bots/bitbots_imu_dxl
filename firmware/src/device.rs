@@ -84,12 +84,12 @@ where
     // Handle the different instructions
     match packet.instruction {
         Instructions::Ping => {
-            info!("Ping");
             // todo: this should wait for based on id for some amount of time
             device.write_status(device_id, 0, 3, |buffer| {
                 buffer[..2].copy_from_slice(&MODEL_NUMBER.to_le_bytes()); // u16 MODEL NUMBER
                 buffer[2] = FIRMWARE_VERSION; //u8 FIRMWARE VERSION
             })?;
+            info!("Ping");
         }
         Instructions::Read { address, length } => {
             // Cast the address and length to usize
