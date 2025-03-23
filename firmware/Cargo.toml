@@ -19,7 +19,7 @@ esp-backtrace = { version = "0.15.0", features = [
 esp-hal = { version = "0.23.1", features = ["esp32", "unstable"] }
 esp-println = { version = "0.13.0", features = ["esp32", "log"] }
 log = { version = "0.4.21" }
-dynamixel2 = { git = "https://github.com/Flova/dynamixel2-rs.git", branch = "main", default-features = false }
+dynamixel2 = { git = "https://github.com/robohouse-delft/dynamixel2-rs.git", branch = "main", default-features = false }
 embedded-io = "0.6.1"
 defmt = "0.3.10"
 esp-storage = { version = "0.4.0", features = ["esp32", "storage"] }

@@ -41,16 +41,15 @@ pub fn device_loop<LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
     }
 }
 
-fn process_packet<ReadBuffer, WriteBuffer, LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
-    device: &mut Device<ReadBuffer, WriteBuffer, DynamixelSerial>,
+fn process_packet<Buffer, LEDC: TxChannel, const LED_BUFFER_SIZE: usize>(
+    device: &mut Device<DynamixelSerial, Buffer>,
     imu_state: &Mutex<RefCell<IMUState>>,
     led: &mut led::LedComponent<LEDC, LED_BUFFER_SIZE>,
     buttons: &mut ButtonComponent,
     config_manager: &ConfigManager,
 ) -> Result<(), TransferError<transport::Error>>
 where
-    WriteBuffer: AsRef<[u8]> + AsMut<[u8]>,
-    ReadBuffer: AsRef<[u8]> + AsMut<[u8]>,
+    Buffer: AsRef<[u8]> + AsMut<[u8]>,
 {
     let packet = device.read(Duration::from_micros(1000)); // TODO revert to 10
 
@@ -88,6 +87,7 @@ where
             device.write_status(device_id, 0, 3, |buffer| {
                 buffer[..2].copy_from_slice(&MODEL_NUMBER.to_le_bytes()); // u16 MODEL NUMBER
                 buffer[2] = FIRMWARE_VERSION; //u8 FIRMWARE VERSION
+                Ok(())
             })?;
             info!("Ping");
         }
@@ -122,6 +122,7 @@ where
             // Answer the read request
             device.write_status(device_id, 0, length, |buffer| {
                 buffer.copy_from_slice(&registers[address..address + length]);
+                Ok(())
             })?;
         }
         Instructions::Write {

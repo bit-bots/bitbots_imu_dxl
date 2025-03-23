@@ -206,7 +206,7 @@ dependencies = [
 [[package]]
 name = "dynamixel2"
 version = "0.9.1"
-source = "git+https://github.com/Flova/dynamixel2-rs.git?branch=main#90b3a90ebdb346946738aef3c4e4abedb0cb7318"
+source = "git+https://github.com/robohouse-delft/dynamixel2-rs.git?branch=main#eed1aa8d1ac8819e0b1b802f560ee5007757a9dd"
 
 [[package]]
 name = "embassy-embedded-hal"
